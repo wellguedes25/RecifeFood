@@ -288,6 +288,7 @@ function App() {
         setUserStatus('landing')
         setUserData(null)
         setSession(null)
+        setShowProfile(false)
     }
 
     if (userStatus === 'loading') {
