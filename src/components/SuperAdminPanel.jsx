@@ -32,28 +32,18 @@ import {
 import { supabase } from '../lib/supabase'
 
 function SuperAdminPanel({ userData, onLogout }) {
-    const [activeTab, setActiveTab] = useState('overview') // overview, merchants, users, financial
+    const [activeTab, setActiveTab] = useState('users') // users, merchants, overview, financial
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState({
         totalUsers: 0,
         totalMerchants: 0,
         totalOrders: 0,
-        volumeTotal: 0,
-        commission: 0
+        volumeTotal: 2548.70,
+        commission: 382.30
     })
-    const [merchants, setMerchants] = useState([])
     const [users, setUsers] = useState([])
-    const [searchQuery, setSearchQuery] = useState('')
+    const [merchants, setMerchants] = useState([])
     const [isAddingMerchant, setIsAddingMerchant] = useState(false)
-    const [actionLoading, setActionLoading] = useState(false)
-
-    // Notification system
-    const [notification, setNotification] = useState(null)
-    const showNotify = (type, message, subMessage = '') => {
-        setNotification({ type, message, subMessage })
-        setTimeout(() => setNotification(null), 3000)
-    }
-
     const [newMerchant, setNewMerchant] = useState({
         name: '',
         category: 'Mista',
@@ -61,40 +51,67 @@ function SuperAdminPanel({ userData, onLogout }) {
         phone: '',
         description: ''
     })
+    const [notification, setNotification] = useState(null)
+    const [actionLoading, setActionLoading] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
 
     useEffect(() => {
         fetchSuperData()
     }, [])
 
+    const showNotify = (type, message, subMessage) => {
+        setNotification({ type, message, subMessage })
+        setTimeout(() => setNotification(null), 3000)
+    }
+
     const fetchSuperData = async () => {
         setLoading(true)
         try {
-            // 1. Fetch Stats
-            const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-            const { count: merchantCount } = await supabase.from('establishments').select('*', { count: 'exact', head: true })
-            const { data: orders } = await supabase.from('orders').select('amount').eq('status', 'completed')
+            const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+            const { data: establishments } = await supabase.from('establishments').select('*').order('name')
 
-            const totalVol = orders?.reduce((acc, current) => acc + (current.amount || 0), 0) || 0
-
-            setStats({
-                totalUsers: userCount || 0,
-                totalMerchants: merchantCount || 0,
-                totalOrders: orders?.length || 0,
-                volumeTotal: totalVol,
-                commission: totalVol * 0.15 // Example 15% commission
-            })
-
-            // 2. Fetch Lists
-            const { data: merchantsList } = await supabase.from('establishments').select('*').order('created_at', { ascending: false })
-            const { data: usersList } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-
-            setMerchants(merchantsList || [])
-            setUsers(usersList || [])
-
+            setUsers(profiles || [])
+            setMerchants(establishments || [])
+            setStats(prev => ({
+                ...prev,
+                totalUsers: profiles?.length || 0,
+                totalMerchants: establishments?.length || 0
+            }))
         } catch (error) {
-            console.error('Error fetching super stats:', error)
+            console.error('Erro ao buscar dados:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const toggleUserRole = async (userId, currentRole) => {
+        const newRole = currentRole === 'customer' ? 'merchant' : 'customer'
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ role: newRole })
+                .eq('id', userId)
+
+            if (error) throw error
+            showNotify('success', 'CARGO ATUALIZADO', `Usuário agora é ${newRole === 'merchant' ? 'LOJISTA' : 'CLIENTE'}`)
+            fetchSuperData()
+        } catch (error) {
+            showNotify('error', 'FALHA NA ATUALIZAÇÃO', error.message)
+        }
+    }
+
+    const togglePromotion = async (merchantId, currentStatus) => {
+        try {
+            const { error } = await supabase
+                .from('establishments')
+                .update({ is_promoted: !currentStatus })
+                .eq('id', merchantId)
+
+            if (error) throw error
+            showNotify('success', !currentStatus ? 'LOJA IMPULSIONADA' : 'STATUS REMOVIDO', 'Destaque atualizado com sucesso.')
+            fetchSuperData()
+        } catch (error) {
+            showNotify('error', 'FALHA NO IMPULSO', error.message)
         }
     }
 
@@ -116,37 +133,6 @@ function SuperAdminPanel({ userData, onLogout }) {
             showNotify('error', 'FALHA NO CADASTRO', error.message)
         } finally {
             setActionLoading(false)
-        }
-    }
-
-    const toggleUserRole = async (userId, currentRole) => {
-        const newRole = currentRole === 'merchant' ? 'customer' : 'merchant'
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ role: newRole })
-                .eq('id', userId)
-
-            if (error) throw error
-            showNotify('success', 'NÍVEL ALTERADO', `Usuário agora é ${newRole.toUpperCase()}.`)
-            fetchSuperData()
-        } catch (error) {
-            showNotify('error', 'FALHA AO ALTERAR', error.message)
-        }
-    }
-
-    const togglePromotion = async (storeId, currentStatus) => {
-        try {
-            const { error } = await supabase
-                .from('establishments')
-                .update({ is_promoted: !currentStatus })
-                .eq('id', storeId)
-
-            if (error) throw error
-            showNotify('success', !currentStatus ? 'LOJA PROMOVIDA' : 'PROMOÇÃO REMOVIDA', 'Visibilidade atualizada no app.')
-            fetchSuperData()
-        } catch (error) {
-            showNotify('error', 'FALHA AO PROMOVER', error.message)
         }
     }
 
@@ -177,17 +163,17 @@ function SuperAdminPanel({ userData, onLogout }) {
     return (
         <div className="flex-1 flex flex-col min-h-screen bg-surface-soft pb-32 font-outfit">
             {/* Header Super Admin */}
-            <header className="bg-white p-8 sticky top-0 z-40 border-b border-gray-100 shadow-sm">
+            <header className="bg-white p-6 md:p-8 sticky top-0 z-40 border-b border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between max-w-7xl mx-auto">
                     <div className="flex items-center gap-5">
                         <div className="bg-secondary p-4 rounded-[24px] shadow-lg shadow-secondary/20 rotate-3">
                             <ShieldCheck className="text-white w-7 h-7" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black italic uppercase tracking-tight text-gray-900">Control Center</h1>
-                            <div className="flex items-center gap-2">
+                            <h1 className="text-xl md:text-2xl font-black italic uppercase tracking-tight text-gray-900 leading-none">Control Center</h1>
+                            <div className="flex items-center gap-2 mt-1">
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Master Admin Access • v1.0.6</span>
+                                <span className="text-[9px] md:text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Master Admin Access • v1.0.7</span>
                             </div>
                         </div>
                     </div>
@@ -198,40 +184,40 @@ function SuperAdminPanel({ userData, onLogout }) {
                             <span className="text-sm font-black text-gray-900 italic uppercase">{userData?.full_name}</span>
                         </div>
                         <button onClick={onLogout} className="bg-surface-soft p-4 rounded-[22px] text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-90">
-                            <LogOut size={22} />
+                            <LogOut size={20} />
                         </button>
                     </div>
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto w-full p-6 space-y-10">
+            <main className="max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6 md:space-y-10">
 
                 {/* Global Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-7 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group">
-                        <Users className="absolute -right-4 -top-4 w-24 h-24 text-gray-50 group-hover:scale-110 transition-transform" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Usuários Ativos</p>
-                        <h2 className="text-3xl font-black text-gray-900 mt-2">{stats.totalUsers}</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    <div className="bg-white p-5 md:p-7 rounded-[32px] md:rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <Users className="absolute -right-4 -top-4 w-20 md:w-24 h-20 md:h-24 text-gray-50 group-hover:scale-110 transition-transform" />
+                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400">Usuários</p>
+                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 mt-1">{stats.totalUsers}</h2>
                     </div>
-                    <div className="bg-white p-7 rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group">
-                        <Store className="absolute -right-4 -top-4 w-24 h-24 text-gray-50 group-hover:scale-110 transition-transform" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Lojistas Parceiros</p>
-                        <h2 className="text-3xl font-black text-gray-900 mt-2">{stats.totalMerchants}</h2>
+                    <div className="bg-white p-5 md:p-7 rounded-[32px] md:rounded-[40px] shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <Store className="absolute -right-4 -top-4 w-20 md:w-24 h-20 md:h-24 text-gray-50 group-hover:scale-110 transition-transform" />
+                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400">Lojistas</p>
+                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 mt-1">{stats.totalMerchants}</h2>
                     </div>
-                    <div className="bg-secondary p-7 rounded-[40px] shadow-xl shadow-secondary/20 text-white relative overflow-hidden group">
-                        <DollarSign className="absolute -right-4 -top-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform" />
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70 italic text-white">Volume Global (GMV)</p>
-                        <h2 className="text-3xl font-black mt-2">R$ {stats.volumeTotal.toFixed(2)}</h2>
+                    <div className="bg-secondary p-5 md:p-7 rounded-[32px] md:rounded-[40px] shadow-xl shadow-secondary/20 text-white relative overflow-hidden group">
+                        <DollarSign className="absolute -right-4 -top-4 w-20 md:w-24 h-20 md:h-24 opacity-10 group-hover:scale-110 transition-transform" />
+                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-70 italic">Volume Global</p>
+                        <h2 className="text-xl md:text-2xl font-black mt-1">R$ {stats.volumeTotal.toFixed(2)}</h2>
                     </div>
-                    <div className="bg-primary p-7 rounded-[40px] shadow-xl shadow-primary/20 text-white relative overflow-hidden group">
-                        <TrendingUp className="absolute -right-4 -top-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform" />
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70 italic text-white">Monetização (Est.)</p>
-                        <h2 className="text-3xl font-black mt-2">R$ {stats.commission.toFixed(2)}</h2>
+                    <div className="bg-primary p-5 md:p-7 rounded-[32px] md:rounded-[40px] shadow-xl shadow-primary/20 text-white relative overflow-hidden group">
+                        <TrendingUp className="absolute -right-4 -top-4 w-20 md:w-24 h-20 md:h-24 opacity-10 group-hover:scale-110 transition-transform" />
+                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-70 italic">Receita (Est.)</p>
+                        <h2 className="text-xl md:text-2xl font-black mt-1">R$ {stats.commission.toFixed(2)}</h2>
                     </div>
                 </div>
 
                 {/* Main Content Sections */}
-                <div className="bg-white rounded-[50px] shadow-sm border border-gray-100 overflow-hidden min-h-[600px]">
+                <div className="bg-white rounded-[40px] md:rounded-[50px] shadow-sm border border-gray-100 overflow-hidden min-h-[600px]">
                     <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none bg-gray-50/30 relative">
                         {[
                             { id: 'users', label: 'Gestão de Usuários', icon: <Users size={16} /> },
@@ -242,7 +228,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-6 py-6 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-4 ${activeTab === tab.id
+                                className={`px-6 py-5 md:py-6 text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-4 ${activeTab === tab.id
                                     ? 'text-secondary bg-white border-secondary shadow-[0_-4px_10px_rgba(0,0,0,0.05)]'
                                     : 'text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-100/50'
                                     }`}
@@ -253,116 +239,8 @@ function SuperAdminPanel({ userData, onLogout }) {
                         ))}
                     </div>
 
-                    <div className="p-8">
-                        {/* 1. OVERVIEW */}
-                        {activeTab === 'overview' && (
-                            <div className="animate-in fade-in duration-500 space-y-8">
-                                <div className="grid md:grid-cols-2 gap-8">
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-black uppercase italic text-gray-800 flex items-center gap-2">
-                                            <BarChart className="text-secondary" size={16} /> Crescimento Recente
-                                        </h3>
-                                        <div className="h-64 bg-surface-soft rounded-[40px] flex items-end justify-between p-8 gap-3">
-                                            {[30, 50, 45, 70, 90, 60, 100].map((h, i) => (
-                                                <motion.div
-                                                    key={i}
-                                                    initial={{ height: 0 }}
-                                                    animate={{ height: `${h}%` }}
-                                                    className="flex-1 bg-secondary/20 rounded-t-xl hover:bg-secondary transition-colors cursor-help"
-                                                    title={`Dia ${i + 1}: ${h} novos usuários`}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-black uppercase italic text-gray-800 flex items-center gap-2">
-                                            <CheckCircle2 className="text-green-500" size={16} /> Atividade da Plataforma
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {merchants.slice(0, 4).map(m => (
-                                                <div key={m.id} className="bg-surface-soft p-5 rounded-[28px] flex items-center justify-between group hover:bg-white hover:shadow-md transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="bg-white w-12 h-12 rounded-2xl flex items-center justify-center text-secondary">
-                                                            <Store size={22} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-black uppercase text-gray-800">{m.name}</p>
-                                                            <p className="text-[10px] font-bold text-gray-400 uppercase">{m.category}</p>
-                                                        </div>
-                                                    </div>
-                                                    <ChevronRight size={18} className="text-gray-300 group-hover:text-secondary" />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 2. MERCHANTS GESTION */}
-                        {activeTab === 'merchants' && (
-                            <div className="animate-in slide-in-from-right-4 duration-500 space-y-8">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="relative flex-1 max-w-md">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input
-                                            type="text"
-                                            placeholder="Buscar estabelecimento..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full bg-surface-soft border-2 border-transparent focus:border-secondary/10 p-4 pl-12 rounded-2xl font-bold text-sm outline-none"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => setIsAddingMerchant(true)}
-                                        className="bg-secondary text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-secondary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all"
-                                    >
-                                        <Plus size={20} /> Cadastrar Novo Lojista
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {merchants.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase())).map(m => (
-                                        <div key={m.id} className="bg-white border border-gray-100 p-7 rounded-[40px] space-y-5 hover:shadow-xl hover:shadow-gray-100 transition-all group relative">
-                                            <div className="flex items-start justify-between">
-                                                <div className="bg-surface-soft w-16 h-16 rounded-[24px] flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-white transition-colors">
-                                                    <Building2 size={28} />
-                                                </div>
-                                                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${m.is_open ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                                                    {m.is_open ? 'Ativo' : 'Pausado'}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-lg font-black uppercase italic leading-tight text-gray-900">{m.name}</h4>
-                                                <p className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mt-1">{m.category}</p>
-                                            </div>
-                                            <div className="space-y-2 pt-2">
-                                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
-                                                    <MapPin size={12} /> {m.address?.slice(0, 30)}...
-                                                </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
-                                                    <Phone size={12} /> {m.phone || 'Não inf.'}
-                                                </div>
-                                            </div>
-                                            <div className="pt-4 flex gap-2">
-                                                <button
-                                                    onClick={() => togglePromotion(m.id, m.is_promoted)}
-                                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${m.is_promoted ? 'bg-yellow-100 text-yellow-600 shadow-inner' : 'bg-surface-soft text-gray-500 hover:bg-yellow-50 hover:text-yellow-600'}`}
-                                                >
-                                                    <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
-                                                    {m.is_promoted ? 'Promovido' : 'Impulsionar'}
-                                                </button>
-                                                <button className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all">
-                                                    <ExternalLink size={16} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 3. USERS MANAGEMENT */}
+                    <div className="p-4 md:p-8">
+                        {/* 1. USERS MANAGEMENT (MOBILE FIRST REFORM) */}
                         {activeTab === 'users' && (
                             <div className="animate-in slide-in-from-right-4 duration-500 space-y-6">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -370,18 +248,79 @@ function SuperAdminPanel({ userData, onLogout }) {
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                         <input
                                             type="text"
-                                            placeholder="Buscar usuário por nome ou ID..."
+                                            placeholder="Buscar usuário..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full bg-surface-soft border-2 border-transparent focus:border-secondary/10 p-4 pl-12 rounded-2xl font-bold text-sm outline-none"
                                         />
                                     </div>
-                                    <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase">
+                                    <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase self-start md:self-auto">
                                         <Users size={14} /> {users.length} Registrados
                                     </div>
                                 </div>
 
-                                <div className="bg-surface-soft rounded-[30px] overflow-hidden border border-gray-100 shadow-inner">
+                                {/* Layout Responsive: Cards on Mobile, Table on Desktop */}
+                                <div className="grid grid-cols-1 md:hidden gap-4">
+                                    {users.filter(u =>
+                                        u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        u.id.includes(searchQuery)
+                                    ).map(u => (
+                                        <div key={u.id} className="bg-white p-5 rounded-[32px] border border-gray-100 shadow-sm space-y-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-surface-soft flex items-center justify-center font-black text-gray-400 text-lg uppercase shadow-inner">
+                                                    {u.full_name?.charAt(0) || 'U'}
+                                                </div>
+                                                <div className="flex-1 overflow-hidden">
+                                                    <p className="text-sm font-black uppercase text-gray-900 leading-none truncate">{u.full_name || 'Sem Nome'}</p>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">ID: {u.id.slice(0, 8)}</p>
+                                                    <div className="mt-2 text-[8px]">
+                                                        <span className={`px-3 py-1 rounded-full font-black uppercase tracking-widest ${u.role === 'superadmin' ? 'bg-purple-100 text-purple-600' : u.role === 'merchant' ? 'bg-secondary/10 text-secondary' : 'bg-green-100 text-green-600'}`}>
+                                                            {u.role === 'superadmin' ? 'SUPER ADMIN' : u.role === 'merchant' ? 'LOJISTA' : 'CLIENTE'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-surface-soft p-4 rounded-2xl space-y-3">
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Acesso do Lojista:</p>
+                                                <div className="flex flex-col gap-2">
+                                                    <select
+                                                        className="w-full bg-white border-2 border-transparent focus:border-secondary/20 text-[11px] font-bold p-3 rounded-xl outline-none shadow-sm"
+                                                        onChange={(e) => linkMerchantToStore(u.id, e.target.value)}
+                                                        defaultValue={u.establishment_id || ''}
+                                                    >
+                                                        <option value="">VINCULAR AO ESTABELECIMENTO...</option>
+                                                        {merchants.map(m => (
+                                                            <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+                                                        ))}
+                                                    </select>
+                                                    {u.establishment_id && (
+                                                        <button
+                                                            onClick={() => linkMerchantToStore(u.id, null)}
+                                                            className="w-full py-3 bg-red-50 text-red-500 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                                                        >
+                                                            <XCircle size={14} /> REMOVER VÍNCULO BASE
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => toggleUserRole(u.id, u.role)}
+                                                    className="flex-1 bg-gray-50 text-gray-400 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-secondary/10 hover:text-secondary transition-all"
+                                                >
+                                                    Inverter Cargo
+                                                </button>
+                                                <button className="p-3 bg-blue-50 text-blue-500 rounded-xl">
+                                                    <Mail size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="hidden md:block bg-surface-soft rounded-[30px] overflow-hidden border border-gray-100 shadow-inner">
                                     <table className="w-full text-left">
                                         <thead>
                                             <tr className="bg-gray-50/80">
@@ -438,7 +377,6 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                     </td>
                                                     <td className="px-8 py-6 text-right">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            {/* Dropdown/Modal to link store would go here, for now a simple toggle */}
                                                             <button
                                                                 onClick={() => toggleUserRole(u.id, u.role)}
                                                                 className="p-3 bg-surface-soft text-gray-400 rounded-xl hover:text-secondary hover:bg-white hover:shadow-md transition-all"
@@ -458,50 +396,160 @@ function SuperAdminPanel({ userData, onLogout }) {
                             </div>
                         )}
 
-                        {/* 4. FINANCIAL (Monetization) */}
-                        {activeTab === 'financial' && (
-                            <div className="animate-in slide-in-from-right-4 duration-500 space-y-8">
+                        {/* 2. MERCHANTS MANAGEMENT */}
+                        {activeTab === 'merchants' && (
+                            <div className="animate-in slide-in-from-right-4 duration-500 space-y-6">
+                                <div className="flex items-center justify-between gap-4">
+                                    <h3 className="text-sm font-black uppercase italic text-gray-800">Parceiros Ativos</h3>
+                                    <button
+                                        onClick={() => setIsAddingMerchant(true)}
+                                        className="bg-secondary text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-secondary/10 flex items-center gap-2 hover:-translate-y-1 active:scale-95 transition-all"
+                                    >
+                                        <Plus size={16} /> Novo Estabelecimento
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {merchants.map(m => (
+                                        <div key={m.id} className="bg-surface-soft p-6 rounded-[40px] border border-gray-100 hover:border-secondary/20 transition-all group">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 group-hover:scale-110 transition-transform">
+                                                    <Building2 className="text-secondary" size={20} />
+                                                </div>
+                                                <div className="px-3 py-1 bg-white rounded-full border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase">{m.category}</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h4 className="text-sm font-black uppercase text-gray-900 group-hover:text-secondary transition-colors">{m.name}</h4>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
+                                                    <MapPin size={10} /> {m.address.slice(0, 30)}...
+                                                </p>
+                                            </div>
+
+                                            <div className="flex gap-2 mt-6">
+                                                <button
+                                                    onClick={() => togglePromotion(m.id, m.is_promoted)}
+                                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${m.is_promoted ? 'bg-yellow-100 text-yellow-600 shadow-inner' : 'bg-surface-soft text-gray-500 hover:bg-yellow-50 hover:text-yellow-600'}`}
+                                                >
+                                                    <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
+                                                    {m.is_promoted ? 'Promovido' : 'Impulsionar'}
+                                                </button>
+                                                <button className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all">
+                                                    <ExternalLink size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. OVERVIEW / STATS */}
+                        {activeTab === 'overview' && (
+                            <div className="animate-in fade-in duration-500 space-y-8">
                                 <div className="grid md:grid-cols-2 gap-8">
-                                    <div className="bg-secondary p-10 rounded-[48px] text-white space-y-6 relative overflow-hidden">
-                                        <TrendingUp className="absolute right-[-10px] bottom-[-10px] w-48 h-48 opacity-10" />
-                                        <h4 className="text-sm font-black uppercase tracking-widest opacity-80">Receita Estimada da Plataforma (15%)</h4>
-                                        <h2 className="text-5xl font-black italic">R$ {stats.commission.toFixed(2)}</h2>
-                                        <div className="pt-4">
-                                            <p className="text-[10px] font-bold uppercase opacity-60">Baseado em um volume de vendas de R$ {stats.volumeTotal.toFixed(2)}</p>
+                                    <div className="bg-surface-soft p-8 rounded-[40px] border border-gray-100 space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-black uppercase italic text-gray-800">Crescimento de Usuários</h3>
+                                            <BarChart className="text-gray-300" size={20} />
+                                        </div>
+                                        <div className="h-40 flex items-end justify-between gap-2 px-4">
+                                            {[40, 70, 45, 90, 65, 80, 100].map((h, i) => (
+                                                <div key={i} className="flex-1 bg-secondary/10 rounded-t-xl relative group">
+                                                    <motion.div
+                                                        initial={{ height: 0 }}
+                                                        animate={{ height: `${h}%` }}
+                                                        className="absolute bottom-0 left-0 right-0 bg-secondary rounded-t-xl group-hover:bg-primary transition-colors"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-between text-[8px] font-black text-gray-400 uppercase px-2">
+                                            <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sab</span><span>Dom</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-black uppercase italic text-gray-800">Principais Lojistas por Volume</h3>
+
+                                    <div className="bg-surface-soft p-8 rounded-[40px] border border-gray-100 space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-black uppercase italic text-gray-800">Distribuição por Categoria</h3>
+                                            <PieChart className="text-gray-300" size={20} />
+                                        </div>
                                         <div className="space-y-4">
-                                            {merchants.slice(0, 3).map((m, i) => (
-                                                <div key={m.id} className="bg-surface-soft p-6 rounded-[32px] flex items-center justify-between border border-transparent hover:border-secondary/20 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="bg-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-secondary italic">
-                                                            #{i + 1}
-                                                        </div>
-                                                        <p className="text-xs font-black uppercase text-gray-800">{m.name}</p>
+                                            {['Padaria', 'Refeição', 'Hortifruti'].map((cat, i) => (
+                                                <div key={cat} className="space-y-1">
+                                                    <div className="flex justify-between text-[10px] font-black uppercase">
+                                                        <span>{cat}</span>
+                                                        <span className="text-secondary">{[45, 30, 25][i]}%</span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-xs font-black text-secondary">R$ {(Math.random() * 5000 + 1000).toFixed(2)}</p>
-                                                        <p className="text-[9px] font-bold text-gray-400 uppercase">Volume Mês</p>
+                                                    <div className="h-2 bg-white rounded-full overflow-hidden">
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${[45, 30, 25][i]}%` }}
+                                                            className={`h-full ${i === 0 ? 'bg-secondary' : i === 1 ? 'bg-primary' : 'bg-yellow-400'}`}
+                                                        />
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-orange-50 p-8 rounded-[40px] border border-orange-100 flex items-center gap-6">
+                            </div>
+                        )}
+
+                        {/* 4. FINANCIAL (REFORMED FOR MOBILE) */}
+                        {activeTab === 'financial' && (
+                            <div className="animate-in slide-in-from-right-4 duration-500 space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-secondary p-8 md:p-10 rounded-[40px] md:rounded-[48px] text-white space-y-6 relative overflow-hidden shadow-xl shadow-secondary/20">
+                                        <TrendingUp className="absolute right-[-10px] bottom-[-10px] w-48 h-48 opacity-10" />
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80">Receita Estimada (Taxa 15%)</h4>
+                                            <h2 className="text-3xl md:text-5xl font-black italic">R$ {stats.commission.toFixed(2)}</h2>
+                                        </div>
+                                        <div className="pt-4 border-t border-white/10">
+                                            <p className="text-[9px] font-bold uppercase opacity-60 tracking-wider">Baseado no volume de vendas:</p>
+                                            <p className="text-lg font-black italic">R$ {stats.volumeTotal.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 md:p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-black uppercase italic text-gray-800 flex items-center gap-2">
+                                                <Star className="text-secondary" size={16} /> Melhores Lojistas
+                                            </h3>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {merchants.slice(0, 3).map((m, i) => (
+                                                <div key={m.id} className="bg-surface-soft px-5 py-4 rounded-2xl flex items-center justify-between group hover:bg-secondary/5 transition-all">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="bg-white w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-black text-secondary italic text-xs">
+                                                            #{i + 1}
+                                                        </div>
+                                                        <p className="text-[11px] font-black uppercase text-gray-700">{m.name}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-[8px] font-bold text-gray-400 uppercase leading-none truncate">Status</p>
+                                                        <p className="text-[10px] font-black text-secondary uppercase mt-0.5">Ativo</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-orange-50 p-6 md:p-8 rounded-[40px] border border-orange-100 flex flex-col md:flex-row items-center gap-6">
                                     <div className="bg-orange-500 p-4 rounded-3xl text-white shadow-lg shadow-orange-200">
                                         <PieChart size={24} />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 text-center md:text-left">
                                         <h4 className="text-xs font-black uppercase italic text-orange-600">Modelo de Negócio Ativo</h4>
                                         <p className="text-[11px] font-bold text-orange-900/60 uppercase mt-1 leading-relaxed">
-                                            A plataforma retém automaticamente 15% de cada transação efetuada. Os pagamentos são processados e repassados aos lojistas no fechamento quinzenal.
+                                            A plataforma retém 15% de cada transação. O fechamento é quinzenal.
                                         </p>
                                     </div>
-                                    <button className="bg-white text-orange-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-sm border border-orange-100 hover:scale-105 active:scale-95 transition-all">
-                                        Simular Repasse
+                                    <button className="w-full md:w-auto bg-white text-orange-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-sm border border-orange-100 active:scale-95 transition-all">
+                                        Simular Repasses
                                     </button>
                                 </div>
                             </div>
@@ -513,39 +561,39 @@ function SuperAdminPanel({ userData, onLogout }) {
             {/* Modal: Adicionar Lojista */}
             <AnimatePresence>
                 {isAddingMerchant && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 px-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 30 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="bg-white w-full max-w-2xl rounded-[50px] shadow-2xl overflow-hidden flex flex-col"
+                            className="bg-white w-full max-w-2xl rounded-[40px] md:rounded-[50px] shadow-2xl overflow-hidden flex flex-col"
                         >
-                            <div className="p-10 border-b border-gray-100 flex items-center justify-between">
+                            <div className="p-8 md:p-10 border-b border-gray-100 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-secondary/10 p-3 rounded-2xl">
                                         <Store className="text-secondary" />
                                     </div>
-                                    <h3 className="text-2xl font-black italic uppercase">Cadastrar Lojista</h3>
+                                    <h3 className="text-xl md:text-2xl font-black italic uppercase">Novo Lojista</h3>
                                 </div>
                                 <button onClick={() => setIsAddingMerchant(false)} className="bg-surface-soft p-3 rounded-2xl text-gray-400">
                                     <XCircle size={24} />
                                 </button>
                             </div>
 
-                            <div className="p-10 overflow-y-auto max-h-[70vh] space-y-6">
-                                <div className="grid grid-cols-2 gap-6">
+                            <div className="p-8 md:p-10 overflow-y-auto max-h-[70vh] space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Nome do Estabelecimento</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Estabelecimento</label>
                                         <input
                                             type="text"
-                                            placeholder="Ex: Pão de Açúcar - Boa Viagem"
+                                            placeholder="Nome fantasia"
                                             value={newMerchant.name}
                                             onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value })}
-                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-black uppercase text-xs focus:ring-4 ring-secondary/10 outline-none"
+                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-black uppercase text-xs outline-none"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Categoria Principal</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Categoria</label>
                                         <select
                                             value={newMerchant.category}
                                             onChange={(e) => setNewMerchant({ ...newMerchant, category: e.target.value })}
@@ -558,53 +606,31 @@ function SuperAdminPanel({ userData, onLogout }) {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Endereço Completo</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Endereço</label>
                                     <input
                                         type="text"
-                                        placeholder="Rua, Número, Bairro - Recife, PE"
+                                        placeholder="Rua, Número - Bairro"
                                         value={newMerchant.address}
                                         onChange={(e) => setNewMerchant({ ...newMerchant, address: e.target.value })}
-                                        className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none focus:ring-4 ring-secondary/10"
+                                        className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none"
                                     />
-                                </div>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Telefone de Contato</label>
-                                        <input
-                                            type="text"
-                                            placeholder="(81) 9...."
-                                            value={newMerchant.phone}
-                                            onChange={(e) => setNewMerchant({ ...newMerchant, phone: e.target.value })}
-                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Descrição Breve</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Ex: Produtos de alta qualidade ao final do dia."
-                                            value={newMerchant.description}
-                                            onChange={(e) => setNewMerchant({ ...newMerchant, description: e.target.value })}
-                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none"
-                                        />
-                                    </div>
                                 </div>
                             </div>
 
-                            <div className="p-10 border-t border-gray-100 bg-surface-soft/30 flex justify-end gap-4">
+                            <div className="p-8 md:p-10 border-t border-gray-100 bg-surface-soft/30 flex justify-end gap-4">
                                 <button
                                     onClick={() => setIsAddingMerchant(false)}
-                                    className="px-8 py-5 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="px-6 py-4 text-[10px] font-black uppercase text-gray-400"
                                 >
-                                    Descartar
+                                    Cancelar
                                 </button>
                                 <button
                                     onClick={handleCreateMerchant}
                                     disabled={actionLoading}
-                                    className="bg-secondary text-white px-10 py-5 rounded-[24px] font-black text-xs uppercase shadow-xl shadow-secondary/20 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-2"
+                                    className="bg-secondary text-white px-8 md:px-10 py-4 md:py-5 rounded-[24px] font-black text-xs uppercase shadow-xl shadow-secondary/20 active:scale-95 transition-all flex items-center gap-2"
                                 >
                                     {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                                    Finalizar Cadastro
+                                    Finalizar
                                 </button>
                             </div>
                         </motion.div>
@@ -621,12 +647,12 @@ function SuperAdminPanel({ userData, onLogout }) {
                         exit={{ opacity: 0, scale: 0.8 }}
                         className="fixed inset-0 z-[500] flex items-center justify-center p-6 pointer-events-none"
                     >
-                        <div className={`bg-white p-10 rounded-[48px] shadow-2xl flex flex-col items-center text-center space-y-4 border-2 ${notification.type === 'success' ? 'border-green-400/20' : 'border-red-400/20'}`}>
+                        <div className={`bg-white p-8 md:p-10 rounded-[48px] shadow-2xl flex flex-col items-center text-center space-y-4 border-2 ${notification.type === 'success' ? 'border-green-400/20' : 'border-red-400/20'}`}>
                             <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg ${notification.type === 'success' ? 'bg-green-500 shadow-green-200 animate-bounce' : 'bg-red-500 shadow-red-200'}`}>
                                 {notification.type === 'success' ? <CheckCircle2 size={40} className="text-white" /> : <XCircle size={40} className="text-white" />}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black italic uppercase text-gray-900 leading-none">{notification.message}</h2>
+                                <h2 className="text-xl md:text-2xl font-black italic uppercase text-gray-900 leading-none">{notification.message}</h2>
                                 {notification.subMessage && (
                                     <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mt-2">{notification.subMessage}</p>
                                 )}
