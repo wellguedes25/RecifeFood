@@ -8,8 +8,11 @@ import StoreDetails from './components/StoreDetails'
 import StoreMap from './components/StoreMap'
 import UserProfile from './components/UserProfile'
 import AdminPanel from './components/AdminPanel'
+import AdminPanelWeb from './components/AdminPanelWeb'
 import SuperAdminPanel from './components/SuperAdminPanel'
+import SuperAdminPanelWeb from './components/SuperAdminPanelWeb'
 import CheckoutModal from './components/CheckoutModal'
+import PlatformSelector from './components/PlatformSelector'
 
 
 function App() {
@@ -38,6 +41,7 @@ function App() {
     const [orders, setOrders] = useState([])
     const [selectedOrderForChat, setSelectedOrderForChat] = useState(null)
     const [checkoutItems, setCheckoutItems] = useState(null)
+    const [viewMode, setViewMode] = useState('auto') // 'auto', 'app', 'web'
 
     useEffect(() => {
         const init = async () => {
@@ -319,16 +323,39 @@ function App() {
                             }}
                             onGuest={handleGuestAccess}
                         />
+                    ) : (userData?.role === 'superadmin' || userData?.role === 'merchant') && viewMode === 'auto' ? (
+                        <PlatformSelector
+                            role={userData.role}
+                            onSelect={(choice) => setViewMode(choice)}
+                        />
                     ) : userData?.role === 'superadmin' ? (
-                        <SuperAdminPanel
-                            userData={userData}
-                            onLogout={handleLogout}
-                        />
+                        viewMode === 'web' ? (
+                            <SuperAdminPanelWeb
+                                userData={userData}
+                                onLogout={handleLogout}
+                                onSwitchMode={() => setViewMode('app')}
+                            />
+                        ) : (
+                            <SuperAdminPanel
+                                userData={userData}
+                                onLogout={handleLogout}
+                                viewMode={viewMode}
+                            />
+                        )
                     ) : userData?.role === 'merchant' ? (
-                        <AdminPanel
-                            userData={userData}
-                            onLogout={handleLogout}
-                        />
+                        viewMode === 'web' ? (
+                            <AdminPanelWeb
+                                userData={userData}
+                                onLogout={handleLogout}
+                                onSwitchMode={() => setViewMode('app')}
+                            />
+                        ) : (
+                            <AdminPanel
+                                userData={userData}
+                                onLogout={handleLogout}
+                                viewMode={viewMode}
+                            />
+                        )
                     ) : (
                         <motion.div
                             key="main"

@@ -163,6 +163,14 @@ function Login({ onLogin, onGuest }) {
                                     <User className="w-5 h-5" />
                                     CONHECER ESTABELECIMENTOS
                                 </button>
+
+                                <button
+                                    onClick={() => setMode('signin')}
+                                    className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-black text-gray-400 hover:text-secondary uppercase tracking-[0.2em] transition-all group"
+                                >
+                                    <Lock size={12} className="group-hover:text-secondary" />
+                                    ACESSAR PAINEL ADM
+                                </button>
                             </div>
                         </motion.div>
                     )}
