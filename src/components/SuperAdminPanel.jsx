@@ -239,7 +239,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                                 onClick={() => setActiveTab(tab)}
                                 className={`px-10 py-7 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'text-secondary bg-secondary/5 border-b-2 border-secondary' : 'text-gray-400 hover:text-gray-600'}`}
                             >
-                                {tab === 'overview' ? 'Visão Geral' : tab === 'merchants' ? 'Gestão de Lojistas' : tab === 'users' ? 'Usuários' : 'Financeiro'}
+                                {tab === 'overview' ? 'Visão Geral' : tab === 'merchants' ? 'Gestão de Lojistas' : tab === 'users' ? 'Gestão de Usuários' : 'Financeiro'}
                             </button>
                         ))}
                     </div>
@@ -356,18 +356,37 @@ function SuperAdminPanel({ userData, onLogout }) {
                         {/* 3. USERS MANAGEMENT */}
                         {activeTab === 'users' && (
                             <div className="animate-in slide-in-from-right-4 duration-500 space-y-6">
-                                <div className="bg-surface-soft rounded-[30px] overflow-hidden border border-gray-100">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar usuário por nome ou ID..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full bg-surface-soft border-2 border-transparent focus:border-secondary/10 p-4 pl-12 rounded-2xl font-bold text-sm outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase">
+                                        <Users size={14} /> {users.length} Registrados
+                                    </div>
+                                </div>
+
+                                <div className="bg-surface-soft rounded-[30px] overflow-hidden border border-gray-100 shadow-inner">
                                     <table className="w-full text-left">
                                         <thead>
-                                            <tr className="bg-gray-50/50">
+                                            <tr className="bg-gray-50/80">
                                                 <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Usuário</th>
-                                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nível de Acesso</th>
-                                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Estabelecimento</th>
+                                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nível / Role</th>
+                                                <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Estabelecimento (Vínculo)</th>
                                                 <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {users.map(u => (
+                                            {users.filter(u =>
+                                                u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                u.id.includes(searchQuery)
+                                            ).map(u => (
                                                 <tr key={u.id} className="hover:bg-white transition-colors group">
                                                     <td className="px-8 py-6">
                                                         <div className="flex items-center gap-4">
