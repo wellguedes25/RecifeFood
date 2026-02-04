@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #DDA63A;
+  /* Amarelo-Mostarda (ODS 2 - Fome Zero) */
+  --color-secondary: #4C9F38;
+  /* Verde (Sustentabilidade/Agricultura) */
+  --color-accent: #EF7E22;
+  /* Laranja (Vitalidade/Apetite) */
+  --color-urgency: #E5243B;
+  /* Vermelho (ODS 1 - Erradicação da Pobreza) */
+  --color-surface-soft: #FDFBEE;
+  /* Fundo Creme Suave */
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
