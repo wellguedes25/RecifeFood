@@ -232,23 +232,23 @@ function SuperAdminPanel({ userData, onLogout }) {
 
                 {/* Main Content Sections */}
                 <div className="bg-white rounded-[50px] shadow-sm border border-gray-100 overflow-hidden min-h-[600px]">
-                    <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none bg-gray-50/30">
+                    <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none bg-gray-50/30 relative">
                         {[
-                            { id: 'overview', label: 'Visão Geral', icon: <BarChart size={16} /> },
-                            { id: 'merchants', label: 'Gestão de Lojistas', icon: <Store size={16} /> },
                             { id: 'users', label: 'Gestão de Usuários', icon: <Users size={16} /> },
+                            { id: 'merchants', label: 'Gestão de Lojistas', icon: <Store size={16} /> },
+                            { id: 'overview', label: 'Estatísticas', icon: <BarChart size={16} /> },
                             { id: 'financial', label: 'Financeiro', icon: <DollarSign size={16} /> }
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-8 py-6 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-2 ${activeTab === tab.id
-                                        ? 'text-secondary bg-white border-secondary shadow-[0_-4px_10px_rgba(0,0,0,0.02)]'
-                                        : 'text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-100/50'
+                                className={`px-6 py-6 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-4 ${activeTab === tab.id
+                                    ? 'text-secondary bg-white border-secondary shadow-[0_-4px_10px_rgba(0,0,0,0.05)]'
+                                    : 'text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-100/50'
                                     }`}
                             >
                                 {tab.icon}
-                                {tab.label}
+                                <span className="mr-2">{tab.label}</span>
                             </button>
                         ))}
                     </div>
