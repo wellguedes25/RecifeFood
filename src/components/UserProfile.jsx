@@ -126,7 +126,7 @@ function UserProfile({ userData, stats, favorites, establishments, onBack, onLog
                             <Award size={18} />
                         </div>
                         <p className="text-[10px] font-black text-gray-400 uppercase">Refeições Salvas</p>
-                        <p className="text-xl font-black text-secondary italic">{stats?.ordersCount || 0}</p>
+                        <p className="text-xl font-black text-secondary italic">{stats?.completedOrders || 0}</p>
                     </div>
                     <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-1">
                         <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -134,6 +134,46 @@ function UserProfile({ userData, stats, favorites, establishments, onBack, onLog
                         </div>
                         <p className="text-[10px] font-black text-gray-400 uppercase">Economia Total</p>
                         <p className="text-xl font-black text-primary italic">R$ {stats?.totalSaved?.toFixed(2) || '0.00'}</p>
+                    </div>
+                </div>
+
+                {/* Sustainability Score (v1.0.8) */}
+                <div className="px-6 mb-2">
+                    <div className="bg-green-600 p-6 rounded-[32px] text-white relative overflow-hidden shadow-xl shadow-green-100">
+                        <div className="absolute right-[-20px] top-[-20px] opacity-10">
+                            <Award size={120} />
+                        </div>
+                        <div className="relative z-10 flex flex-col gap-4">
+                            <div className="flex items-center gap-2">
+                                <span className="bg-white/20 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">Score Verde</span>
+                                <div className="h-[2px] flex-1 bg-white/20"></div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-4xl font-black italic">{stats?.weightSaved?.toFixed(1) || '0.0'}<span className="text-sm ml-1">kg</span></p>
+                                    <p className="text-[9px] font-bold uppercase opacity-80">Comida salva por você</p>
+                                </div>
+                                <div className="text-right space-y-1">
+                                    <p className="text-2xl font-black italic">-{((stats?.weightSaved || 0) * 2.5).toFixed(1)}<span className="text-sm ml-1">kg</span></p>
+                                    <p className="text-[9px] font-bold uppercase opacity-80">Emissões de CO2 evitadas</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/10 p-4 rounded-2xl border border-white/5">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[9px] font-black uppercase">Nível: Protetor do Recife</span>
+                                    <span className="text-[9px] font-black uppercase">Próximo: Guardião</span>
+                                </div>
+                                <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(((stats?.weightSaved || 0) / 10) * 100, 100)}%` }}
+                                        className="h-full bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -225,7 +265,7 @@ function UserProfile({ userData, stats, favorites, establishments, onBack, onLog
                     </button>
 
                     <div className="text-center pt-4">
-                        <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Recife Save App v1.0.4</p>
+                        <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Recife Save App v1.0.8</p>
                     </div>
                 </div>
             </main>

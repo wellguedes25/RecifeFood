@@ -1,5 +1,6 @@
 import { ChevronLeft, Heart, Share2, Info, MapPin, Clock, Calendar, ChevronDown, Minus, Plus, ShoppingBag, Store, Flame, Bell, BellRing, Phone } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 
 function StoreDetails({ store, onBack, onAddItem, userData }) {
@@ -164,6 +165,15 @@ function StoreDetails({ store, onBack, onAddItem, userData }) {
                                     <div className="flex items-center gap-2">
                                         <h3 className="font-black text-gray-900 text-lg uppercase italic leading-tight">{bag.title}</h3>
                                         <span className="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-black rounded-lg uppercase tracking-widest shrink-0">{store.category}</span>
+                                        {bag.is_urgent && (
+                                            <motion.span
+                                                animate={{ scale: [1, 1.1, 1] }}
+                                                transition={{ repeat: Infinity, duration: 1.5 }}
+                                                className="px-2 py-0.5 bg-urgence text-white text-[9px] font-black rounded-lg uppercase tracking-widest shrink-0 shadow-lg shadow-urgence/20"
+                                            >
+                                                URGENTE 🔥
+                                            </motion.span>
+                                        )}
                                     </div>
                                     <p className="text-xs text-gray-400 font-medium line-clamp-2">{bag.description}</p>
 

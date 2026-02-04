@@ -1,5 +1,5 @@
-import {useState, useEffect, useCallback} from 'react'
-import {motion, AnimatePresence} from 'framer-motion'
+import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
     LayoutDashboard,
     Package,
@@ -33,9 +33,10 @@ import {
     PieChart,
     Power,
     Zap,
-    Scale
+    Scale,
+    Printer
 } from 'lucide-react'
-import {supabase} from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 
 function AdminPanel({ userData, onLogout }) {
     const [activeTab, setActiveTab] = useState('dashboard') // dashboard, orders, inventory, store, reviews
@@ -93,7 +94,7 @@ function AdminPanel({ userData, onLogout }) {
             if (!userData?.establishment_id) return
 
             // 1. Fetch Establishment Details
-            const {data: storeData} = await supabase
+            const { data: storeData } = await supabase
                 .from('establishments')
                 .select('*')
                 .eq('id', userData.establishment_id)
@@ -108,49 +109,49 @@ function AdminPanel({ userData, onLogout }) {
                     phone: storeData.phone || '',
                     description: storeData.description || '',
                     operating_hours: storeData.operating_hours || {
-                        monday: {open: '08:00', close: '20:00', closed: false },
-                        tuesday: {open: '08:00', close: '20:00', closed: false },
-                        wednesday: {open: '08:00', close: '20:00', closed: false },
-                        thursday: {open: '08:00', close: '20:00', closed: false },
-                        friday: {open: '08:00', close: '20:00', closed: false },
-                        saturday: {open: '08:00', close: '18:00', closed: false },
-                        sunday: {open: '08:00', close: '12:00', closed: true }
+                        monday: { open: '08:00', close: '20:00', closed: false },
+                        tuesday: { open: '08:00', close: '20:00', closed: false },
+                        wednesday: { open: '08:00', close: '20:00', closed: false },
+                        thursday: { open: '08:00', close: '20:00', closed: false },
+                        friday: { open: '08:00', close: '20:00', closed: false },
+                        saturday: { open: '08:00', close: '18:00', closed: false },
+                        sunday: { open: '08:00', close: '12:00', closed: true }
                     }
                 })
             }
 
             // 2. Fetch Orders
-            const {data: ordersData} = await supabase
+            const { data: ordersData } = await supabase
                 .from('orders')
                 .select(`
                     *,
                     bags!inner (*)
                 `)
                 .eq('bags.establishment_id', userData.establishment_id)
-                .order('created_at', {ascending: false })
+                .order('created_at', { ascending: false })
 
             const fetchedOrders = ordersData || []
             setOrders(fetchedOrders)
 
             // 3. Fetch Reviews-With Profile Join for names
-            const {data: reviewsData} = await supabase
+            const { data: reviewsData } = await supabase
                 .from('reviews')
                 .select(`
                     *,
                     profiles:user_id (full_name)
                 `)
                 .eq('establishment_id', userData.establishment_id)
-                .order('created_at', {ascending: false })
+                .order('created_at', { ascending: false })
 
             const fetchedReviews = reviewsData || []
             setReviews(fetchedReviews)
 
             // 4. Fetch Bags
-            const {data: bagsData} = await supabase
+            const { data: bagsData } = await supabase
                 .from('bags')
                 .select('*')
                 .eq('establishment_id', userData.establishment_id)
-                .order('created_at', {ascending: false })
+                .order('created_at', { ascending: false })
             setBags(bagsData || [])
 
             // 5. Stats calculation using local variables (not state)
@@ -162,7 +163,7 @@ function AdminPanel({ userData, onLogout }) {
             const totalKgSaved = completedOrders.reduce((acc, curr) => acc + (curr.bags?.weight_per_unit || 0.5), 0)
             const totalSavings = completedOrders.reduce((acc, curr) => {
                 const bag = curr.bags || {}
-                const diff = (bag.original_price || 0)-(bag.discounted_price || 0)
+                const diff = (bag.original_price || 0) - (bag.discounted_price || 0)
                 return acc + (diff > 0 ? diff : 0)
             }, 0)
 
@@ -179,9 +180,9 @@ function AdminPanel({ userData, onLogout }) {
                 savingsGenerated: totalSavings
             })
 
-       } catch (error) {
+        } catch (error) {
             console.error('Error fetching admin data:', error)
-       } finally {
+        } finally {
             setLoading(false)
         }
     }, [userData?.establishment_id])
@@ -191,8 +192,8 @@ function AdminPanel({ userData, onLogout }) {
 
         const channel = supabase
             .channel('admin-updates-main')
-            .on('postgres_changes', {event: '*', schema: 'public', table: 'orders' }, () => fetchAdminData())
-            .on('postgres_changes', {event: '*', schema: 'public', table: 'reviews' }, () => fetchAdminData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchAdminData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews' }, () => fetchAdminData())
             .subscribe()
 
         return () => supabase.removeChannel(channel)
@@ -208,7 +209,7 @@ function AdminPanel({ userData, onLogout }) {
 
             // Fetch all pending orders for this establishment to filter in JS
             // This is safer than partial string matching on UUID columns
-            const {data: allPending, error: fetchError} = await supabase
+            const { data: allPending, error: fetchError } = await supabase
                 .from('orders')
                 .select('*, bags!inner (*)')
                 .eq('bags.establishment_id', userData.establishment_id)
@@ -223,7 +224,7 @@ function AdminPanel({ userData, onLogout }) {
             if (!matchingOrder) throw new Error('Código inválido ou sacola já coletada.')
 
             // Update status to collected (merchant verified)
-            const {error: updateError} = await supabase
+            const { error: updateError } = await supabase
                 .from('orders')
                 .update({
                     status: 'collected',
@@ -237,9 +238,9 @@ function AdminPanel({ userData, onLogout }) {
             setVoucherInput('')
             fetchAdminData()
 
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'CÓDIGO INVÁLIDO', error.message)
-       } finally {
+        } finally {
             setActionLoading(false)
         }
     }
@@ -279,7 +280,7 @@ function AdminPanel({ userData, onLogout }) {
     const notifyFollowers = async (bagTitle) => {
         try {
             // 1. Get all users following this store
-            const {data: followers, error: fetchError} = await supabase
+            const { data: followers, error: fetchError } = await supabase
                 .from('profiles')
                 .select('id')
                 .contains('following', [userData.establishment_id])
@@ -297,7 +298,7 @@ function AdminPanel({ userData, onLogout }) {
             if (notifications.length > 0) {
                 await supabase.from('notifications').insert(notifications)
             }
-       } catch (err) {
+        } catch (err) {
             console.error('Error notifying followers:', err)
         }
     }
@@ -320,13 +321,13 @@ function AdminPanel({ userData, onLogout }) {
 
             let error
             if (isEditingBag) {
-                const {error: updateError} = await supabase
+                const { error: updateError } = await supabase
                     .from('bags')
                     .update(dataToSave)
                     .eq('id', isEditingBag)
                 error = updateError
-           } else {
-                const {error: insertError} = await supabase
+            } else {
+                const { error: insertError } = await supabase
                     .from('bags')
                     .insert([dataToSave]) // Changed bagData to dataToSave
                 error = insertError
@@ -341,9 +342,9 @@ function AdminPanel({ userData, onLogout }) {
             setIsAddingBag(false)
             setIsEditingBag(null)
             fetchAdminData()
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'ERRO AO SALVAR', error.message)
-       } finally {
+        } finally {
             setActionLoading(false)
         }
     }
@@ -354,7 +355,7 @@ function AdminPanel({ userData, onLogout }) {
             await supabase.from('bags').delete().eq('id', id)
             showNotify('success', 'SACOLA REMOVIDA', 'Item excluído do seu catálogo.')
             fetchAdminData()
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'ERRO AO DELETAR', error.message)
         }
     }
@@ -362,7 +363,7 @@ function AdminPanel({ userData, onLogout }) {
     const handleUpdateStore = async () => {
         setActionLoading(true)
         try {
-            const {error} = await supabase
+            const { error } = await supabase
                 .from('establishments')
                 .update({
                     name: storeForm.name,
@@ -377,9 +378,9 @@ function AdminPanel({ userData, onLogout }) {
             if (error) throw error
             showNotify('success', 'PERFIL ATUALIZADO', 'Suas informações foram salvas!')
             fetchAdminData()
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'ERRO AO ATUALIZAR', error.message)
-       } finally {
+        } finally {
             setActionLoading(false)
         }
     }
@@ -387,7 +388,7 @@ function AdminPanel({ userData, onLogout }) {
     const toggleStoreStatus = async () => {
         const newStatus = !establishment.is_open
         try {
-            const {error} = await supabase
+            const { error } = await supabase
                 .from('establishments')
                 .update({ is_open: newStatus })
                 .eq('id', userData.establishment_id)
@@ -395,14 +396,14 @@ function AdminPanel({ userData, onLogout }) {
             if (error) throw error
             setEstablishment({ ...establishment, is_open: newStatus })
             showNotify('success', newStatus ? 'LOJA ABERTA' : 'LOJA FECHADA', newStatus ? 'Clientes podem ver suas sacolas.' : 'Sua loja está oculta na busca.')
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'ERRO AO ALTERAR STATUS', error.message)
         }
     }
 
     const toggleBagStatus = async (bagId, currentStatus) => {
         try {
-            const {error} = await supabase
+            const { error } = await supabase
                 .from('bags')
                 .update({ is_active: !currentStatus })
                 .eq('id', bagId)
@@ -410,7 +411,7 @@ function AdminPanel({ userData, onLogout }) {
             if (error) throw error
             fetchAdminData()
             showNotify('success', !currentStatus ? 'PRODUTO ATIVO' : 'PRODUTO ESGOTADO', !currentStatus ? 'Disponível para os clientes.' : 'Marcado como indisponível.')
-       } catch (error) {
+        } catch (error) {
             showNotify('error', 'ERRO AO ALTERAR STATUS', error.message)
         }
     }
@@ -675,7 +676,7 @@ function AdminPanel({ userData, onLogout }) {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-4 gap-4 pt-2">
+                                    <div className="grid grid-cols-5 gap-4 pt-2">
                                         <div className="bg-surface-soft p-3 rounded-2xl text-center">
                                             <p className="text-[8px] font-black text-gray-400 uppercase mb-1">QTD</p>
                                             <p className="text-sm font-black text-gray-800">{bag.quantity} un</p>
@@ -688,6 +689,21 @@ function AdminPanel({ userData, onLogout }) {
                                             <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Janela</p>
                                             <p className="text-[10px] font-black text-gray-800">{bag.pickup_window}</p>
                                         </div>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const { error } = await supabase.from('bags').update({ is_urgent: !bag.is_urgent }).eq('id', bag.id)
+                                                    if (error) throw error
+                                                    showNotify('success', !bag.is_urgent ? 'IMPULSO ATIVADO' : 'IMPULSO DESATIVADO', 'Sua sacola agora tem selo de urgência.')
+                                                    fetchAdminData()
+                                                } catch (e) { showNotify('error', 'ERRO', e.message) }
+                                            }}
+                                            className={`rounded-2xl flex flex-col items-center justify-center transition-all ${bag.is_urgent ? 'bg-urgence text-white shadow-lg shadow-urgence/30 animate-pulse' : 'bg-surface-soft text-gray-300 hover:text-urgence'}`}
+                                            title="Venda Rápida (Urgente)"
+                                        >
+                                            <Zap size={16} fill={bag.is_urgent ? "currentColor" : "none"} />
+                                            <span className="text-[7px] font-black uppercase mt-1">{bag.is_urgent ? 'IMPULSO' : 'PUSH'}</span>
+                                        </button>
                                         <button
                                             onClick={() => toggleBagStatus(bag.id, bag.is_active)}
                                             className={`rounded-2xl flex flex-col items-center justify-center transition-all ${bag.is_active ? 'bg-surface-soft text-gray-400 hover:text-orange-500' : 'bg-orange-50 text-orange-500 border border-orange-100'}`}
@@ -867,8 +883,8 @@ function AdminPanel({ userData, onLogout }) {
                                                         value={storeForm.operating_hours?.[day]?.open || '08:00'}
                                                         disabled={storeForm.operating_hours?.[day]?.closed}
                                                         onChange={(e) => {
-                                                            const newHours = {...storeForm.operating_hours }
-                                                            newHours[day] = {...newHours[day], open: e.target.value }
+                                                            const newHours = { ...storeForm.operating_hours }
+                                                            newHours[day] = { ...newHours[day], open: e.target.value }
                                                             setStoreForm({ ...storeForm, operating_hours: newHours })
                                                         }}
                                                         className="bg-white border border-gray-100 p-2 rounded-xl text-[10px] font-black outline-none disabled:opacity-30"
@@ -879,16 +895,16 @@ function AdminPanel({ userData, onLogout }) {
                                                         value={storeForm.operating_hours?.[day]?.close || '20:00'}
                                                         disabled={storeForm.operating_hours?.[day]?.closed}
                                                         onChange={(e) => {
-                                                            const newHours = {...storeForm.operating_hours }
-                                                            newHours[day] = {...newHours[day], close: e.target.value }
+                                                            const newHours = { ...storeForm.operating_hours }
+                                                            newHours[day] = { ...newHours[day], close: e.target.value }
                                                             setStoreForm({ ...storeForm, operating_hours: newHours })
                                                         }}
                                                         className="bg-white border border-gray-100 p-2 rounded-xl text-[10px] font-black outline-none disabled:opacity-30"
                                                     />
                                                     <button
                                                         onClick={() => {
-                                                            const newHours = {...storeForm.operating_hours }
-                                                            newHours[day] = {...newHours[day], closed: !newHours[day]?.closed }
+                                                            const newHours = { ...storeForm.operating_hours }
+                                                            newHours[day] = { ...newHours[day], closed: !newHours[day]?.closed }
                                                             setStoreForm({ ...storeForm, operating_hours: newHours })
                                                         }}
                                                         className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${storeForm.operating_hours?.[day]?.closed ? 'bg-red-500 text-white' : 'bg-green-100 text-green-600'}`}
@@ -1177,11 +1193,11 @@ function OrderChat({ orderId, userId, onClose }) {
     }, [orderId])
 
     const fetchMessages = async () => {
-        const {data} = await supabase
+        const { data } = await supabase
             .from('messages')
             .select('*')
             .eq('order_id', orderId)
-            .order('created_at', {ascending: true })
+            .order('created_at', { ascending: true })
         setMessages(data || [])
         setLoading(false)
     }
@@ -1196,7 +1212,7 @@ function OrderChat({ orderId, userId, onClose }) {
             content: newMessage,
         }
 
-        const {error} = await supabase
+        const { error } = await supabase
             .from('messages')
             .insert([messageData])
 

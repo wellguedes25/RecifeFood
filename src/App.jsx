@@ -9,6 +9,7 @@ import StoreMap from './components/StoreMap'
 import UserProfile from './components/UserProfile'
 import AdminPanel from './components/AdminPanel'
 import SuperAdminPanel from './components/SuperAdminPanel'
+import CheckoutModal from './components/CheckoutModal'
 
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
     const [session, setSession] = useState(null)
     const [orders, setOrders] = useState([])
     const [selectedOrderForChat, setSelectedOrderForChat] = useState(null)
+    const [checkoutItems, setCheckoutItems] = useState(null)
 
     useEffect(() => {
         const init = async () => {
@@ -243,22 +245,27 @@ function App() {
         setTimeout(() => setShowLocationModal(true), 1000)
     }
 
-    const handlePlaceOrder = async (items) => {
+    const handlePlaceOrder = (items) => {
         if (!session) {
             alert('Por favor, faça login para realizar o pedido.')
             setUserStatus('landing')
             return
         }
+        setCheckoutItems(items)
+    }
+
+    const handleConfirmCheckout = async () => {
+        if (!checkoutItems) return
 
         try {
-            const ordersToInsert = Object.entries(items).filter(([_, qty]) => qty > 0).map(([bagId, qty]) => {
+            const ordersToInsert = Object.entries(checkoutItems).filter(([_, qty]) => qty > 0).map(([bagId, qty]) => {
                 const bag = selectedStore.bags.find(b => b.id === bagId)
                 return {
                     user_id: session.user.id,
                     bag_id: bagId,
                     amount: bag.discounted_price * qty,
                     status: 'pending',
-                    payment_method: 'pix' // default for now
+                    payment_method: 'pix'
                 }
             })
 
@@ -266,6 +273,7 @@ function App() {
             if (error) throw error
 
             await fetchOrders(session.user.id)
+            setCheckoutItems(null) // Close checkout
             setOrderSuccess(true)
             confetti({
                 particleCount: 150,
@@ -719,13 +727,24 @@ function App() {
                             }}
                             stats={{
                                 ordersCount: orders.length,
-                                totalSaved: orders.reduce((acc, curr) => acc + (curr.amount || 0), 0)
+                                totalSaved: orders.reduce((acc, curr) => acc + (curr.amount || 0), 0),
+                                weightSaved: orders.filter(o => o.status === 'completed').reduce((acc, curr) => acc + (curr.bags?.weight_per_unit || 0), 0),
+                                completedOrders: orders.filter(o => o.status === 'completed').length
                             }}
                             favorites={favorites}
                             establishments={establishments}
                             onBack={() => setShowProfile(false)}
                             onLogout={handleLogout}
                             onUpdate={(updatedData) => setUserData(updatedData)}
+                        />
+                    )}
+
+                    {checkoutItems && (
+                        <CheckoutModal
+                            items={checkoutItems}
+                            store={selectedStore}
+                            onConfirm={handleConfirmCheckout}
+                            onClose={() => setCheckoutItems(null)}
                         />
                     )}
                 </AnimatePresence>
