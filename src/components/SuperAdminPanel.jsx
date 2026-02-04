@@ -38,8 +38,9 @@ function SuperAdminPanel({ userData, onLogout }) {
         totalUsers: 0,
         totalMerchants: 0,
         totalOrders: 0,
-        volumeTotal: 2548.70,
-        commission: 382.30
+        volumeTotal: 0,
+        commission: 0,
+        boostRevenue: 0
     })
     const [users, setUsers] = useState([])
     const [merchants, setMerchants] = useState([])
@@ -49,7 +50,8 @@ function SuperAdminPanel({ userData, onLogout }) {
         category: 'Mista',
         address: '',
         phone: '',
-        description: ''
+        description: '',
+        boost_fee: 2.00
     })
     const [notification, setNotification] = useState(null)
     const [actionLoading, setActionLoading] = useState(false)
@@ -70,12 +72,22 @@ function SuperAdminPanel({ userData, onLogout }) {
             const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
             const { data: establishments } = await supabase.from('establishments').select('*').order('name')
 
+            const { data: orders } = await supabase.from('orders').select('amount').eq('status', 'completed')
+            const { data: boosts } = await supabase.from('boost_usages').select('fee_at_time')
+
+            const totalVol = orders?.reduce((acc, curr) => acc + (curr.amount || 0), 0) || 0
+            const totalBoost = boosts?.reduce((acc, curr) => acc + (curr.fee_at_time || 0), 0) || 0
+
             setUsers(profiles || [])
             setMerchants(establishments || [])
             setStats(prev => ({
                 ...prev,
                 totalUsers: profiles?.length || 0,
-                totalMerchants: establishments?.length || 0
+                totalMerchants: establishments?.length || 0,
+                totalOrders: orders?.length || 0,
+                volumeTotal: totalVol,
+                commission: totalVol * 0.15,
+                boostRevenue: totalBoost
             }))
         } catch (error) {
             console.error('Erro ao buscar dados:', error)
@@ -127,7 +139,7 @@ function SuperAdminPanel({ userData, onLogout }) {
 
             showNotify('success', 'LOJISTA CADASTRADO', `${newMerchant.name} agora faz parte da rede.`)
             setIsAddingMerchant(false)
-            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '' })
+            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', boost_fee: 2.00 })
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'FALHA NO CADASTRO', error.message)
@@ -503,13 +515,25 @@ function SuperAdminPanel({ userData, onLogout }) {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="bg-secondary p-8 md:p-10 rounded-[40px] md:rounded-[48px] text-white space-y-6 relative overflow-hidden shadow-xl shadow-secondary/20">
                                         <TrendingUp className="absolute right-[-10px] bottom-[-10px] w-48 h-48 opacity-10" />
-                                        <div className="flex flex-col gap-1">
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80">Receita Estimada (Taxa 15%)</h4>
-                                            <h2 className="text-3xl md:text-5xl font-black italic">R$ {stats.commission.toFixed(2)}</h2>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="flex flex-col gap-1">
+                                                <h4 className="text-[9px] font-black uppercase tracking-widest opacity-80">Comissões (15%)</h4>
+                                                <h2 className="text-2xl md:text-3xl font-black italic">R$ {stats.commission.toFixed(2)}</h2>
+                                            </div>
+                                            <div className="flex flex-col gap-1 text-right">
+                                                <h4 className="text-[9px] font-black uppercase tracking-widest opacity-80">Taxas de Impulso</h4>
+                                                <h2 className="text-2xl md:text-3xl font-black italic">R$ {stats.boostRevenue.toFixed(2)}</h2>
+                                            </div>
                                         </div>
-                                        <div className="pt-4 border-t border-white/10">
-                                            <p className="text-[9px] font-bold uppercase opacity-60 tracking-wider">Baseado no volume de vendas:</p>
-                                            <p className="text-lg font-black italic">R$ {stats.volumeTotal.toFixed(2)}</p>
+                                        <div className="pt-4 border-t border-white/10 flex justify-between items-end">
+                                            <div>
+                                                <p className="text-[9px] font-bold uppercase opacity-60 tracking-wider">Total Acumulado:</p>
+                                                <p className="text-3xl font-black italic">R$ {(stats.commission + stats.boostRevenue).toFixed(2)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-bold uppercase opacity-60 tracking-wider">Volume de Vendas:</p>
+                                                <p className="text-sm font-black italic">R$ {stats.volumeTotal.toFixed(2)}</p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -605,15 +629,28 @@ function SuperAdminPanel({ userData, onLogout }) {
                                         </select>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Endereço</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Rua, Número - Bairro"
-                                        value={newMerchant.address}
-                                        onChange={(e) => setNewMerchant({ ...newMerchant, address: e.target.value })}
-                                        className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none"
-                                    />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Endereço</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Rua, Número - Bairro"
+                                            value={newMerchant.address}
+                                            onChange={(e) => setNewMerchant({ ...newMerchant, address: e.target.value })}
+                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-bold text-xs outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Taxa de Impulso (R$)</label>
+                                        <input
+                                            type="number"
+                                            step="0.50"
+                                            placeholder="Ex: 2,00"
+                                            value={newMerchant.boost_fee}
+                                            onChange={(e) => setNewMerchant({ ...newMerchant, boost_fee: parseFloat(e.target.value) })}
+                                            className="w-full bg-surface-soft border border-gray-100 p-5 rounded-[24px] font-black text-xs outline-none text-secondary"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

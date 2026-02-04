@@ -177,7 +177,8 @@ function AdminPanel({ userData, onLogout }) {
                 revenue: totalRevenue,
                 rating: avgRating || 0,
                 kgSaved: totalKgSaved,
-                savingsGenerated: totalSavings
+                savingsGenerated: totalSavings,
+                boostsUsed: (await supabase.from('boost_usages').select('id', { count: 'exact' }).eq('establishment_id', userData.establishment_id)).count || 0
             })
 
         } catch (error) {
@@ -691,10 +692,27 @@ function AdminPanel({ userData, onLogout }) {
                                         </div>
                                         <button
                                             onClick={async () => {
+                                                const currentFee = establishment?.boost_fee || 2.00
+                                                const isActivating = !bag.is_urgent
+
+                                                if (isActivating && !confirm(`Deseja ativar o IMPULSO? Uma taxa de R$ ${currentFee} será contabilizada para esta sacola.`)) {
+                                                    return
+                                                }
+
                                                 try {
-                                                    const { error } = await supabase.from('bags').update({ is_urgent: !bag.is_urgent }).eq('id', bag.id)
+                                                    const { error } = await supabase.from('bags').update({ is_urgent: isActivating }).eq('id', bag.id)
                                                     if (error) throw error
-                                                    showNotify('success', !bag.is_urgent ? 'IMPULSO ATIVADO' : 'IMPULSO DESATIVADO', 'Sua sacola agora tem selo de urgência.')
+
+                                                    if (isActivating) {
+                                                        // Log boost usage for billing
+                                                        await supabase.from('boost_usages').insert([{
+                                                            establishment_id: userData.establishment_id,
+                                                            bag_id: bag.id,
+                                                            fee_at_time: currentFee
+                                                        }])
+                                                    }
+
+                                                    showNotify('success', isActivating ? 'IMPULSO ATIVADO' : 'IMPULSO DESATIVADO', isActivating ? `Taxa de R$ ${currentFee} aplicada.` : 'Sua sacola voltou ao modo padrão.')
                                                     fetchAdminData()
                                                 } catch (e) { showNotify('error', 'ERRO', e.message) }
                                             }}
@@ -761,6 +779,21 @@ function AdminPanel({ userData, onLogout }) {
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Economia para os Clientes</p>
                                 </div>
                                 <p className="text-[9px] font-bold text-gray-400 uppercase">Dinheiro que voltou para a mesa da comunidade através da sua loja.</p>
+                            </div>
+
+                            <div className="bg-secondary p-8 rounded-[40px] shadow-sm text-white flex flex-col items-center text-center space-y-4 relative overflow-hidden">
+                                <Zap className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10" />
+                                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
+                                    <Zap size={40} className="text-white" fill="white" />
+                                </div>
+                                <div>
+                                    <h4 className="text-3xl font-black italic uppercase">{stats.boostsUsed} Impulsos</h4>
+                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">Utilizados até agora</p>
+                                </div>
+                                <div className="pt-4 border-t border-white/10 w-full">
+                                    <p className="text-[9px] font-bold uppercase opacity-60 tracking-wider">Custo de Impulso Acumulado:</p>
+                                    <p className="text-xl font-black italic">R$ {(stats.boostsUsed * (establishment?.boost_fee || 2.0)).toFixed(2)}</p>
+                                </div>
                             </div>
 
                             <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
