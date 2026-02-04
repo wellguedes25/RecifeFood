@@ -187,7 +187,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                             <h1 className="text-2xl font-black italic uppercase tracking-tight text-gray-900">Control Center</h1>
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Master Admin Access</span>
+                                <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Master Admin Access • v1.0.6</span>
                             </div>
                         </div>
                     </div>
@@ -232,14 +232,23 @@ function SuperAdminPanel({ userData, onLogout }) {
 
                 {/* Main Content Sections */}
                 <div className="bg-white rounded-[50px] shadow-sm border border-gray-100 overflow-hidden min-h-[600px]">
-                    <div className="flex border-b border-gray-100 overflow-x-auto">
-                        {['overview', 'merchants', 'users', 'financial'].map((tab) => (
+                    <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none bg-gray-50/30">
+                        {[
+                            { id: 'overview', label: 'Visão Geral', icon: <BarChart size={16} /> },
+                            { id: 'merchants', label: 'Gestão de Lojistas', icon: <Store size={16} /> },
+                            { id: 'users', label: 'Gestão de Usuários', icon: <Users size={16} /> },
+                            { id: 'financial', label: 'Financeiro', icon: <DollarSign size={16} /> }
+                        ].map((tab) => (
                             <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`px-10 py-7 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'text-secondary bg-secondary/5 border-b-2 border-secondary' : 'text-gray-400 hover:text-gray-600'}`}
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-8 py-6 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-2 ${activeTab === tab.id
+                                        ? 'text-secondary bg-white border-secondary shadow-[0_-4px_10px_rgba(0,0,0,0.02)]'
+                                        : 'text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-100/50'
+                                    }`}
                             >
-                                {tab === 'overview' ? 'Visão Geral' : tab === 'merchants' ? 'Gestão de Lojistas' : tab === 'users' ? 'Gestão de Usuários' : 'Financeiro'}
+                                {tab.icon}
+                                {tab.label}
                             </button>
                         ))}
                     </div>
