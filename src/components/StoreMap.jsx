@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-function StoreMap({ stores, userLocation, onSelectStore }) {
+function StoreMap({ stores, userLocation, onSelectStore, locationName }) {
     const mapRef = useRef(null)
     const containerRef = useRef(null)
 
@@ -164,7 +164,7 @@ function StoreMap({ stores, userLocation, onSelectStore }) {
                         <div className="w-2 h-2 bg-secondary rounded-full animate-ping"></div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Mapa Dinâmico</p>
                     </div>
-                    <h3 className="text-sm font-black text-gray-900 italic mt-0.5">Recife • PE</h3>
+                    <h3 className="text-sm font-black text-gray-900 italic mt-0.5">{locationName || 'Recife • PE'}</h3>
                 </div>
             </div>
         </div>

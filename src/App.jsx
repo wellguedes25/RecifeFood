@@ -42,6 +42,7 @@ function App() {
     const [selectedOrderForChat, setSelectedOrderForChat] = useState(null)
     const [checkoutItems, setCheckoutItems] = useState(null)
     const [viewMode, setViewMode] = useState('auto') // 'auto', 'app', 'web'
+    const [locationName, setLocationName] = useState('Localizando...')
 
     useEffect(() => {
         const init = async () => {
@@ -232,12 +233,27 @@ function App() {
     const requestLocation = (callback) => {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
-                (position) => {
+                async (position) => {
                     const loc = { lat: position.coords.latitude, lng: position.coords.longitude }
                     setUserLocation(loc)
+
+                    // Reverse geocoding to get city name
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}&zoom=10`)
+                        const data = await response.json()
+                        const city = data.address.city || data.address.town || data.address.village || 'Sua Região'
+                        const state = data.address.state ? `, ${data.address.state_code || data.address.state.slice(0, 2).toUpperCase()}` : ''
+                        setLocationName(`${city}${state}`)
+                    } catch (err) {
+                        setLocationName('Localização Ativa')
+                    }
+
                     if (callback) callback(loc)
                 },
-                (error) => console.log("Erro ao pegar localização:", error)
+                (error) => {
+                    console.log("Erro ao pegar localização:", error)
+                    setLocationName('Recife, PE') // Fallback
+                }
             )
         }
     }
@@ -382,7 +398,7 @@ function App() {
                                     <div className="flex items-center gap-3">
                                         <div className="hidden sm:flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-lg shadow-black/10 border border-primary/20">
                                             <Navigation className="w-3 h-3 text-primary" fill="currentColor" />
-                                            <span className="text-[11px] font-black text-gray-800 tracking-wide uppercase">Recife, PE</span>
+                                            <span className="text-[11px] font-black text-gray-800 tracking-wide uppercase">{locationName || 'Recife, PE'}</span>
                                         </div>
                                         <button
                                             onClick={() => setShowProfile(true)}
@@ -576,6 +592,7 @@ function App() {
                                                 stores={establishments}
                                                 userLocation={userLocation}
                                                 onSelectStore={(store) => setSelectedStore(store)}
+                                                locationName={locationName}
                                             />
                                         </div>
                                     )}
@@ -735,8 +752,8 @@ function App() {
                             <div className="bg-white w-full max-w-sm rounded-[40px] p-8 text-center space-y-6">
                                 <Navigation className="w-12 h-12 text-primary mx-auto animate-pulse" />
                                 <h2 className="text-2xl font-black italic">Onde você está?</h2>
-                                <p className="text-gray-500 text-sm">Precisamos da sua localização para o Recife Save.</p>
-                                <button onClick={confirmLocationPermission} className="w-full bg-primary text-white p-4 rounded-2xl font-black">PERMITIR</button>
+                                <p className="text-gray-500 text-sm">Precisamos da sua localização para encontrar ofertas próximas.</p>
+                                <button onClick={confirmLocationPermission} className="w-full bg-primary text-white p-4 rounded-2xl font-black">PERMITIR ACESSO</button>
                             </div>
                         </motion.div>
                     )}
