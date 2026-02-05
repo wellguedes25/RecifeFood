@@ -90,6 +90,7 @@ function AdminPanel({ userData, onLogout }) {
         address: '',
         phone: '',
         description: '',
+        pagseguro_account: '',
         operating_hours: {}
     })
 
@@ -114,6 +115,7 @@ function AdminPanel({ userData, onLogout }) {
                     address: storeData.address || '',
                     phone: storeData.phone || '',
                     description: storeData.description || '',
+                    pagseguro_account: storeData.pagseguro_account || '',
                     operating_hours: storeData.operating_hours || {
                         monday: { open: '08:00', close: '20:00', closed: false },
                         tuesday: { open: '08:00', close: '20:00', closed: false },
@@ -414,6 +416,7 @@ function AdminPanel({ userData, onLogout }) {
                     address: storeForm.address,
                     phone: storeForm.phone,
                     description: storeForm.description,
+                    pagseguro_account: storeForm.pagseguro_account,
                     operating_hours: storeForm.operating_hours
                 })
                 .eq('id', userData.establishment_id)
@@ -942,6 +945,24 @@ function AdminPanel({ userData, onLogout }) {
                                             />
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="space-y-1 ml-1 pt-4 border-t border-gray-50">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <label className="text-[10px] font-black text-secondary uppercase tracking-widest">E-mail PagBank (Split de 15%)</label>
+                                        <div className="bg-secondary/10 text-secondary text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Obrigatório p/ Vender</div>
+                                    </div>
+                                    <div className="relative">
+                                        <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary w-4 h-4" />
+                                        <input
+                                            type="email"
+                                            placeholder="Ex: financeiro@loja.com.br"
+                                            value={storeForm.pagseguro_account}
+                                            onChange={(e) => setStoreForm({ ...storeForm, pagseguro_account: e.target.value })}
+                                            className="w-full bg-secondary/5 border border-secondary/20 p-4 pl-12 rounded-2xl font-bold text-xs focus:ring-2 ring-secondary/20 outline-none text-secondary"
+                                        />
+                                    </div>
+                                    <p className="text-[8px] font-bold text-gray-400 uppercase mt-2 px-2">É necessário usar o e-mail da sua conta PagSeguro para que o repasse automático funcione.</p>
                                 </div>
 
                                 <div className="space-y-4 pt-4 border-t border-gray-50">

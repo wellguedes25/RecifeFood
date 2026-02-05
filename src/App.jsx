@@ -282,39 +282,25 @@ function App() {
     }
 
     const handleConfirmCheckout = async () => {
-        if (!checkoutItems) return
-
         try {
-            const ordersToInsert = Object.entries(checkoutItems).filter(([_, qty]) => qty > 0).map(([bagId, qty]) => {
-                const bag = selectedStore.bags.find(b => b.id === bagId)
-                return {
-                    user_id: session.user.id,
-                    bag_id: bagId,
-                    amount: bag.discounted_price * qty,
-                    status: 'pending',
-                    payment_method: 'pix'
-                }
-            })
-
-            const { error } = await supabase.from('orders').insert(ordersToInsert)
-            if (error) throw error
-
             await fetchOrders(session.user.id)
-            setCheckoutItems(null) // Close checkout
+            setCheckoutItems(null) // Fecha o modal de checkout
             setOrderSuccess(true)
+
             confetti({
                 particleCount: 150,
                 spread: 70,
                 origin: { y: 0.6 },
                 colors: ['#DDA63A', '#EF7E22', '#22C55E']
             })
+
             setTimeout(() => {
                 setOrderSuccess(false)
                 setSelectedStore(null)
             }, 3000)
 
         } catch (error) {
-            alert('Erro ao realizar reserva: ' + error.message)
+            console.error('Erro ao finalizar checkout:', error)
         }
     }
 

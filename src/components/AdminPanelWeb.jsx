@@ -5,7 +5,7 @@ import {
     Plus, Search, Store, Zap, Package, TrendingUp, DollarSign,
     Clock, CheckCircle2, AlertCircle, Printer, Filter, MessageSquare,
     ChevronRight, ArrowUpRight, Scale, Smartphone, Loader2,
-    Trash2, Edit2, X, XCircle, Save, AlertTriangle
+    Trash2, Edit2, X, XCircle, Save, AlertTriangle, MapPin, Phone, Mail, CreditCard
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -42,13 +42,34 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
         dietary_filters: []
     })
 
+    const [storeForm, setStoreForm] = useState({
+        name: '',
+        category: '',
+        address: '',
+        phone: '',
+        description: '',
+        pagseguro_account: '',
+        operating_hours: {}
+    })
+
     const fetchAdminData = useCallback(async () => {
         try {
             if (!userData?.establishment_id) return
 
             // 1. Store
             const { data: store } = await supabase.from('establishments').select('*').eq('id', userData.establishment_id).single()
-            setEstablishment(store)
+            if (store) {
+                setEstablishment(store)
+                setStoreForm({
+                    name: store.name,
+                    category: store.category,
+                    address: store.address || '',
+                    phone: store.phone || '',
+                    description: store.description || '',
+                    pagseguro_account: store.pagseguro_account || '',
+                    operating_hours: store.operating_hours || {}
+                })
+            }
 
             // 2. Orders
             const { data: ordersData } = await supabase.from('orders').select('*, bags!inner(*)').eq('bags.establishment_id', userData.establishment_id)
@@ -168,6 +189,32 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
             fetchAdminData()
         } catch (e) {
             showNotify('error', 'ERRO', e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleUpdateStore = async () => {
+        setActionLoading(true)
+        try {
+            const { error } = await supabase
+                .from('establishments')
+                .update({
+                    name: storeForm.name,
+                    category: storeForm.category,
+                    address: storeForm.address,
+                    phone: storeForm.phone,
+                    description: storeForm.description,
+                    pagseguro_account: storeForm.pagseguro_account,
+                    operating_hours: storeForm.operating_hours
+                })
+                .eq('id', userData.establishment_id)
+
+            if (error) throw error
+            showNotify('success', 'CONFIGURAÇÕES SALVAS', 'As informações da sua loja foram atualizadas.')
+            fetchAdminData()
+        } catch (error) {
+            showNotify('error', 'ERRO AO ATUALIZAR', error.message)
         } finally {
             setActionLoading(false)
         }
@@ -403,6 +450,110 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </motion.div>
+                        )}
+                        {activeTab === 'settings' && (
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-4xl space-y-10">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-3xl font-black text-gray-900 italic uppercase">Configurações da Loja</h2>
+                                    <button
+                                        onClick={handleUpdateStore}
+                                        disabled={actionLoading}
+                                        className="bg-primary text-white px-10 py-5 rounded-3xl font-black text-sm uppercase shadow-2xl shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center gap-3"
+                                    >
+                                        {actionLoading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                                        Salvar Dados
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-10">
+                                    <div className="space-y-8 bg-white p-10 rounded-[48px] border border-gray-100 shadow-sm">
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Nome Comercial</label>
+                                            <div className="relative">
+                                                <Store className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                                                <input
+                                                    value={storeForm.name}
+                                                    onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
+                                                    className="w-full bg-surface-soft border border-gray-50 p-6 pl-14 rounded-3xl font-black text-sm outline-none focus:border-primary transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Endereço de Retirada</label>
+                                            <div className="relative">
+                                                <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                                                <input
+                                                    value={storeForm.address}
+                                                    onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })}
+                                                    className="w-full bg-surface-soft border border-gray-50 p-6 pl-14 rounded-3xl font-bold text-sm outline-none focus:border-primary transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-4">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Categoria</label>
+                                                <input
+                                                    value={storeForm.category}
+                                                    onChange={(e) => setStoreForm({ ...storeForm, category: e.target.value })}
+                                                    className="w-full bg-surface-soft border border-gray-50 p-6 rounded-3xl font-black text-xs uppercase outline-none focus:border-primary transition-all"
+                                                />
+                                            </div>
+                                            <div className="space-y-4">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">WhatsApp</label>
+                                                <div className="relative">
+                                                    <Phone className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                                                    <input
+                                                        value={storeForm.phone}
+                                                        onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })}
+                                                        className="w-full bg-surface-soft border border-gray-50 p-6 pl-14 rounded-3xl font-bold text-sm outline-none focus:border-primary transition-all"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-8">
+                                        <div className="bg-secondary/5 p-10 rounded-[48px] border border-secondary/10 space-y-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-secondary text-white p-3 rounded-2xl">
+                                                    <CreditCard size={20} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-black uppercase italic text-gray-900 leading-none">Pagamento & Recebimento</h4>
+                                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mt-1.5">Configuração do Split Automático</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <label className="text-[10px] font-black text-secondary uppercase tracking-widest px-2">E-mail PagBank</label>
+                                                <input
+                                                    type="email"
+                                                    placeholder="financeiro@sualoja.com.br"
+                                                    value={storeForm.pagseguro_account}
+                                                    onChange={(e) => setStoreForm({ ...storeForm, pagseguro_account: e.target.value })}
+                                                    className="w-full bg-white border border-secondary/20 p-6 rounded-3xl font-black text-sm text-secondary outline-none focus:ring-4 ring-secondary/5 transition-all"
+                                                />
+                                                <p className="text-[10px] font-bold text-gray-400 px-2 leading-relaxed uppercase">
+                                                    ESTE E-MAIL DEVE SER O MESMO DA SUA CONTA PAGSEGURO. ELE SERÁ USADO PARA ENVIAR OS SEUS 85% AUTOMATICAMENTE.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-10 rounded-[48px] border border-gray-100 shadow-sm space-y-4">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Sobre a Loja</label>
+                                            <textarea
+                                                rows={4}
+                                                value={storeForm.description}
+                                                onChange={(e) => setStoreForm({ ...storeForm, description: e.target.value })}
+                                                className="w-full bg-surface-soft border border-gray-50 p-6 rounded-3xl font-bold text-sm outline-none focus:border-primary transition-all resize-none"
+                                                placeholder="Conte um pouco sobre sua loja e seu compromisso contra o desperdício..."
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </motion.div>
                         )}

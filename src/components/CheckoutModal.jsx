@@ -1,38 +1,89 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CreditCard, QrCode, Copy, CheckCircle2, Loader2, ShieldCheck, Clock } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 function CheckoutModal({ items, store, onConfirm, onClose }) {
     const [step, setStep] = useState('summary') // summary, pix, success
     const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState(false)
+    const [pixData, setPixData] = useState(null)
+    const [orderId, setOrderId] = useState(null)
 
     const total = Object.entries(items).reduce((acc, [id, qty]) => {
         const bag = store.bags.find(b => b.id === id)
         return acc + (bag?.discounted_price || 0) * qty
     }, 0)
 
-    const handlePixPayment = () => {
+    const handlePixPayment = async () => {
         setIsLoading(true)
-        setTimeout(() => {
+        try {
+            // 1. Criar o pedido no Banco como 'pending'
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) throw new Error("Usuário não autenticado")
+
+            // Pegamos o primeiro item (simplificação: um tipo de sacola por vez)
+            const [bagId, qty] = Object.entries(items).find(([_, q]) => q > 0)
+            const bag = store.bags.find(b => b.id === bagId)
+
+            const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                    user_id: user.id,
+                    bag_id: bagId,
+                    amount: bag.discounted_price * qty,
+                    status: 'pending',
+                    payment_method: 'pix'
+                })
+                .select()
+                .single()
+
+            if (orderError) throw orderError
+            setOrderId(order.id)
+
+            // 2. Chamar a Edge Function para gerar o PIX real no PagSeguro
+            const { data, error: functionError } = await supabase.functions.invoke('process-payment', {
+                body: { orderId: order.id, paymentMethod: 'pix' }
+            })
+
+            if (functionError) throw functionError
+
+            // 3. Salvar os dados do PIX (QR Code e Texto)
+            const qrCode = data.qr_codes?.[0]
+            if (qrCode) {
+                setPixData({
+                    text: qrCode.text,
+                    image: qrCode.links.find(l => l.rel === 'qr_code')?.href
+                })
+                setStep('pix')
+            } else {
+                throw new Error("Não foi possível gerar o QR Code PIX")
+            }
+
+        } catch (error) {
+            console.error('Erro no pagamento:', error)
+            alert('Erro ao processar pagamento: ' + (error.message || 'Tente novamente.'))
+        } finally {
             setIsLoading(false)
-            setStep('pix')
-        }, 1500)
+        }
     }
 
     const handleConfirmPayment = () => {
         setIsLoading(true)
+        // Aqui poderíamos verificar se o pagamento foi realmente confirmado via webhook ou polling
+        // Por enquanto, seguimos o fluxo para sucesso após o usuário clicar em "JÁ PAGUEI"
         setTimeout(() => {
             setIsLoading(false)
             setStep('success')
             setTimeout(() => {
                 onConfirm()
             }, 2000)
-        }, 2000)
+        }, 1500)
     }
 
     const copyPixKey = () => {
-        navigator.clipboard.writeText('00020126580014BR.GOV.BCB.PIX0136e3b5e3a5-1d0a-4c79-925a-f958bbdc2b7f520400005303986540510.005802BR5913RECIFE SAVE6008RECIFE62070503***6304E2B1')
+        if (!pixData?.text) return
+        navigator.clipboard.writeText(pixData.text)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
     }
@@ -111,11 +162,12 @@ function CheckoutModal({ items, store, onConfirm, onClose }) {
                         <div className="text-center space-y-6">
                             <div className="relative inline-block p-4 bg-white border-4 border-surface-soft rounded-[40px] shadow-inner mb-2">
                                 <div className="w-48 h-48 bg-gray-50 rounded-3xl flex items-center justify-center relative overflow-hidden">
-                                    {/* Pix Simulation QR */}
-                                    <div className="absolute inset-2 grid grid-cols-4 grid-rows-4 gap-1 opacity-20">
-                                        {[...Array(16)].map((_, i) => <div key={i} className="bg-black rounded-sm" />)}
-                                    </div>
-                                    <QrCode size={100} className="text-gray-900 relative z-10" />
+                                    {/* Pix Real QR from PagSeguro */}
+                                    {pixData?.image ? (
+                                        <img src={pixData.image} alt="PIX QR Code" className="w-full h-full object-contain relative z-10" />
+                                    ) : (
+                                        <QrCode size={100} className="text-gray-900 relative z-10" />
+                                    )}
                                 </div>
                                 <div className="absolute -bottom-2 -right-2 bg-[#32BCAD] p-2 rounded-xl text-white shadow-lg">
                                     <div className="w-4 h-4" />

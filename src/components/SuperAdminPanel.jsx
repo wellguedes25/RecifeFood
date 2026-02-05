@@ -29,7 +29,8 @@ import {
     Filter,
     Zap,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    Edit2
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -53,6 +54,7 @@ function SuperAdminPanel({ userData, onLogout }) {
         address: '',
         phone: '',
         description: '',
+        pagseguro_account: '',
         boost_fee: 2.00
     })
     const [notification, setNotification] = useState(null)
@@ -60,6 +62,7 @@ function SuperAdminPanel({ userData, onLogout }) {
     const [searchQuery, setSearchQuery] = useState('')
     const [confirmingDelete, setConfirmingDelete] = useState(null) // ID of merchant to delete
     const [confirmingDeleteUser, setConfirmingDeleteUser] = useState(null) // ID of user to delete
+    const [editingMerchantId, setEditingMerchantId] = useState(null)
 
     useEffect(() => {
         fetchSuperData()
@@ -139,21 +142,42 @@ function SuperAdminPanel({ userData, onLogout }) {
         if (!newMerchant.name || !newMerchant.address) return
         setActionLoading(true)
         try {
-            const { error } = await supabase
-                .from('establishments')
-                .insert([newMerchant])
+            if (editingMerchantId) {
+                const { error } = await supabase
+                    .from('establishments')
+                    .update(newMerchant)
+                    .eq('id', editingMerchantId)
+                if (error) throw error
+                showNotify('success', 'SUCESSO', 'Estabelecimento atualizado.')
+            } else {
+                const { error } = await supabase.from('establishments').insert([newMerchant])
+                if (error) throw error
+                showNotify('success', 'SUCESSO', 'Estabelecimento cadastrado.')
+            }
 
-            if (error) throw error
-
-            showNotify('success', 'LOJISTA CADASTRADO', `${newMerchant.name} agora faz parte da rede.`)
             setIsAddingMerchant(false)
-            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', boost_fee: 2.00 })
+            setEditingMerchantId(null)
+            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
             fetchSuperData()
         } catch (error) {
-            showNotify('error', 'FALHA NO CADASTRO', error.message)
+            showNotify('error', 'FALHA', error.message)
         } finally {
             setActionLoading(false)
         }
+    }
+
+    const openEditModal = (m) => {
+        setNewMerchant({
+            name: m.name || '',
+            category: m.category || 'Mista',
+            address: m.address || '',
+            phone: m.phone || '',
+            description: m.description || '',
+            pagseguro_account: m.pagseguro_account || '',
+            boost_fee: m.boost_fee || 2.00
+        })
+        setEditingMerchantId(m.id)
+        setIsAddingMerchant(true)
     }
 
     const linkMerchantToStore = async (userId, storeId) => {
@@ -496,30 +520,43 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                     <p className="text-[9px] font-black text-gray-400 uppercase">{m.category}</p>
                                                 </div>
                                             </div>
-                                            <div className="space-y-1">
+                                            <div className="space-y-1 pr-12 relative">
                                                 <h4 className="text-sm font-black uppercase text-gray-900 group-hover:text-secondary transition-colors">{m.name}</h4>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
                                                     <MapPin size={10} /> {m.address ? m.address.slice(0, 30) + '...' : 'Endereço não informado'}
                                                 </p>
+                                                <button
+                                                    onClick={() => openEditModal(m)}
+                                                    className="absolute -top-12 right-0 p-3 bg-secondary text-white rounded-2xl shadow-lg shadow-secondary/20 hover:scale-110 active:scale-95 transition-all"
+                                                    title="Editar Estabelecimento"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
                                             </div>
 
-                                            <div className="flex gap-2 mt-6">
+                                            <div className="flex flex-wrap gap-2 mt-6">
                                                 <button
                                                     onClick={() => togglePromotion(m.id, m.is_promoted)}
-                                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${m.is_promoted ? 'bg-yellow-100 text-yellow-600 shadow-inner' : 'bg-surface-soft text-gray-500 hover:bg-yellow-50 hover:text-yellow-600'}`}
+                                                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${m.is_promoted ? 'bg-yellow-100 text-yellow-600 shadow-inner' : 'bg-surface-soft text-gray-500 hover:bg-yellow-50 hover:text-yellow-600'}`}
                                                 >
                                                     <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
                                                     {m.is_promoted ? 'Promovido' : 'Impulsionar'}
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDeleteMerchant(m.id)}
-                                                    className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                                <button className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all">
-                                                    <ExternalLink size={16} />
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleDeleteMerchant(m.id)}
+                                                        className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                        title="Excluir"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                    <button
+                                                        className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+                                                        title="Ver Loja"
+                                                    >
+                                                        <ExternalLink size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -610,21 +647,18 @@ function SuperAdminPanel({ userData, onLogout }) {
                                     <div className="bg-white p-6 md:p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-6">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-black uppercase italic text-gray-800 flex items-center gap-2">
-                                                <Star className="text-secondary" size={16} /> Melhores Lojistas
+                                                <DollarSign className="text-secondary" size={16} /> Previsão de Repasse
                                             </h3>
                                         </div>
                                         <div className="space-y-3">
-                                            {merchants.slice(0, 3).map((m, i) => (
-                                                <div key={m.id} className="bg-surface-soft px-5 py-4 rounded-2xl flex items-center justify-between group hover:bg-secondary/5 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="bg-white w-10 h-10 rounded-xl shadow-sm flex items-center justify-center font-black text-secondary italic text-xs">
-                                                            #{i + 1}
-                                                        </div>
-                                                        <p className="text-[11px] font-black uppercase text-gray-700">{m.name}</p>
+                                            {merchants.slice(0, 4).map((m) => (
+                                                <div key={m.id} className="bg-surface-soft px-5 py-4 rounded-2xl flex items-center justify-between group">
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase text-gray-900 leading-none">{m.name}</p>
+                                                        <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">Líquido a repassar</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="text-[8px] font-bold text-gray-400 uppercase leading-none truncate">Status</p>
-                                                        <p className="text-[10px] font-black text-secondary uppercase mt-0.5">Ativo</p>
+                                                        <p className="text-[12px] font-black text-secondary italic">R$ 1.047,50</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -667,10 +701,14 @@ function SuperAdminPanel({ userData, onLogout }) {
                                     <div className="bg-secondary/10 p-3 rounded-2xl">
                                         <Store className="text-secondary" />
                                     </div>
-                                    <h3 className="text-xl md:text-2xl font-black italic uppercase">Novo Lojista</h3>
+                                    <h3 className="text-xl font-black italic uppercase">{editingMerchantId ? 'Editar Lojista' : 'Novo Lojista'}</h3>
                                 </div>
-                                <button onClick={() => setIsAddingMerchant(false)} className="bg-surface-soft p-3 rounded-2xl text-gray-400">
-                                    <XCircle size={24} />
+                                <button onClick={() => {
+                                    setIsAddingMerchant(false)
+                                    setEditingMerchantId(null)
+                                    setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
+                                }} className="bg-surface-soft p-2 rounded-xl text-gray-400">
+                                    <XCircle size={20} />
                                 </button>
                             </div>
 
@@ -722,22 +760,36 @@ function SuperAdminPanel({ userData, onLogout }) {
                                         />
                                     </div>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-secondary uppercase ml-2 tracking-widest italic">E-mail PagBank (Split Automático)</label>
+                                    <input
+                                        type="email"
+                                        placeholder="E-mail da conta PagSeguro do parceiro"
+                                        value={newMerchant.pagseguro_account}
+                                        onChange={(e) => setNewMerchant({ ...newMerchant, pagseguro_account: e.target.value })}
+                                        className="w-full bg-secondary/5 border border-secondary/10 p-5 rounded-[24px] font-black text-xs outline-none text-secondary"
+                                    />
+                                </div>
                             </div>
 
-                            <div className="p-8 md:p-10 border-t border-gray-100 bg-surface-soft/30 flex justify-end gap-4">
+                            <div className="p-6 bg-gray-50 flex gap-3">
                                 <button
-                                    onClick={() => setIsAddingMerchant(false)}
-                                    className="px-6 py-4 text-[10px] font-black uppercase text-gray-400"
+                                    onClick={() => {
+                                        setIsAddingMerchant(false)
+                                        setEditingMerchantId(null)
+                                        setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
+                                    }}
+                                    className="flex-1 py-4 font-black text-xs uppercase text-gray-400"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={handleCreateMerchant}
                                     disabled={actionLoading}
-                                    className="bg-secondary text-white px-8 md:px-10 py-4 md:py-5 rounded-[24px] font-black text-xs uppercase shadow-xl shadow-secondary/20 active:scale-95 transition-all flex items-center gap-2"
+                                    className="flex-1 bg-secondary text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg shadow-secondary/20 flex items-center justify-center gap-2"
                                 >
-                                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <UserPlus size={20} />}
-                                    Finalizar
+                                    {actionLoading ? <Loader2 className="animate-spin" size={16} /> : (editingMerchantId ? <Settings size={16} /> : <Plus size={16} />)}
+                                    {editingMerchantId ? 'Salvar' : 'Cadastrar'}
                                 </button>
                             </div>
                         </motion.div>

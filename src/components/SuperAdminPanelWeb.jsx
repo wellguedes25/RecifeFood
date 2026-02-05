@@ -5,7 +5,7 @@ import {
     Mail, Phone, MapPin, ArrowRight, Star, BarChart, PieChart,
     ChevronRight, UserPlus, Filter, Zap, LayoutDashboard, DollarSign,
     CheckCircle2, XCircle, Search, Trash2, Power, Smartphone, Loader2,
-    Building2, Plus, LogIn, AlertTriangle
+    Building2, Plus, LogIn, AlertTriangle, Edit2
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -29,6 +29,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
         address: '',
         phone: '',
         description: '',
+        pagseguro_account: '',
         boost_fee: 2.00
     })
     const [notification, setNotification] = useState(null)
@@ -36,6 +37,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     const [searchQuery, setSearchQuery] = useState('')
     const [confirmingDelete, setConfirmingDelete] = useState(null)
     const [confirmingDeleteUser, setConfirmingDeleteUser] = useState(null)
+    const [editingMerchantId, setEditingMerchantId] = useState(null)
 
     useEffect(() => {
         fetchSuperData()
@@ -105,17 +107,42 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
         if (!newMerchant.name || !newMerchant.address) return
         setActionLoading(true)
         try {
-            const { error } = await supabase.from('establishments').insert([newMerchant])
-            if (error) throw error
-            showNotify('success', 'SUCESSO', 'Estabelecimento cadastrado.')
+            if (editingMerchantId) {
+                const { error } = await supabase
+                    .from('establishments')
+                    .update(newMerchant)
+                    .eq('id', editingMerchantId)
+                if (error) throw error
+                showNotify('success', 'SUCESSO', 'Estabelecimento atualizado.')
+            } else {
+                const { error } = await supabase.from('establishments').insert([newMerchant])
+                if (error) throw error
+                showNotify('success', 'SUCESSO', 'Estabelecimento cadastrado.')
+            }
+
             setIsAddingMerchant(false)
-            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', boost_fee: 2.00 })
+            setEditingMerchantId(null)
+            setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'ERRO', error.message)
         } finally {
             setActionLoading(false)
         }
+    }
+
+    const openEditModal = (m) => {
+        setNewMerchant({
+            name: m.name || '',
+            category: m.category || 'Mista',
+            address: m.address || '',
+            phone: m.phone || '',
+            description: m.description || '',
+            pagseguro_account: m.pagseguro_account || '',
+            boost_fee: m.boost_fee || 2.00
+        })
+        setEditingMerchantId(m.id)
+        setIsAddingMerchant(true)
     }
 
     const handleDeleteMerchant = async (merchantId) => {
@@ -445,15 +472,101 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                             <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
                                             {m.is_promoted ? 'Promovido' : 'Impulsionar'}
                                         </button>
-                                        <button
-                                            onClick={() => handleDeleteMerchant(m.id)}
-                                            className="p-4 bg-surface-soft text-gray-400 rounded-2xl hover:text-red-500 hover:bg-red-50 transition-all"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => openEditModal(m)}
+                                                className="p-4 bg-secondary/10 text-secondary rounded-2xl hover:bg-secondary hover:text-white transition-all shadow-sm"
+                                                title="Editar"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteMerchant(m.id)}
+                                                className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                title="Excluir"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {/* Financial Tab Content */}
+                    {activeTab === 'financial' && (
+                        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            <div className="grid grid-cols-3 gap-8">
+                                <div className="bg-secondary p-10 rounded-[48px] text-white space-y-4 shadow-2xl shadow-secondary/20 relative overflow-hidden">
+                                    <TrendingUp className="absolute right-[-20%] bottom-[-20%] w-64 h-64 opacity-10" />
+                                    <h4 className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">Receita de Comissões (15%)</h4>
+                                    <h2 className="text-4xl font-black italic">R$ {stats.commission.toFixed(2)}</h2>
+                                    <p className="text-[10px] font-bold opacity-60 uppercase">Calculado sobre o volume total de vendas finalizadas.</p>
+                                </div>
+                                <div className="bg-white p-10 rounded-[48px] border border-gray-100 space-y-4 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-orange-50 p-2 rounded-xl">
+                                            <Zap className="text-orange-500" size={20} />
+                                        </div>
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Receita de Impulsos</h4>
+                                    </div>
+                                    <h2 className="text-4xl font-black italic text-gray-900">R$ {stats.boostRevenue.toFixed(2)}</h2>
+                                    <p className="text-[10px] font-bold text-gray-300 uppercase">Total arrecadado com taxas de destaque de lojas.</p>
+                                </div>
+                                <div className="bg-white p-10 rounded-[48px] border border-gray-100 space-y-4 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-50 p-2 rounded-xl">
+                                            <BarChart className="text-blue-500" size={20} />
+                                        </div>
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Total Plataforma</h4>
+                                    </div>
+                                    <h2 className="text-4xl font-black italic text-gray-900">R$ {(stats.commission + stats.boostRevenue).toFixed(2)}</h2>
+                                    <p className="text-[10px] font-bold text-gray-300 uppercase">Lucro bruto acumulado (Comissões + Taxas).</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-white rounded-[48px] border border-gray-50 shadow-sm overflow-hidden">
+                                <div className="p-10 border-b border-gray-50 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-xl font-black italic uppercase text-gray-900">Relatório de Repasse</h3>
+                                        <p className="text-xs font-bold text-gray-400 uppercase mt-1">Valores a serem transferidos para os parceiros</p>
+                                    </div>
+                                    <button className="bg-surface-soft text-gray-900 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-all">
+                                        Exportar PDF
+                                    </button>
+                                </div>
+
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50/50">
+                                        <tr>
+                                            <th className="px-10 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Parceiro</th>
+                                            <th className="px-10 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Vendas Brutas</th>
+                                            <th className="px-10 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Comissão (15%)</th>
+                                            <th className="px-10 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Taxas de Impulso</th>
+                                            <th className="px-10 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Valor Líquido (Repasse)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {merchants.map(m => {
+                                            const mOrders = 1250.00 // Demo value logic could be expanded
+                                            const mCommission = mOrders * 0.15
+                                            const mBoosts = 15.00
+                                            return (
+                                                <tr key={m.id} className="hover:bg-gray-50/20 transition-colors">
+                                                    <td className="px-10 py-6">
+                                                        <p className="text-sm font-black text-gray-900 uppercase italic leading-none">{m.name}</p>
+                                                        <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">CNPJ: 00.000.000/0001-00</p>
+                                                    </td>
+                                                    <td className="px-10 py-6 text-right font-black text-sm">R$ {mOrders.toFixed(2)}</td>
+                                                    <td className="px-10 py-6 text-right font-black text-sm text-red-500">- R$ {mCommission.toFixed(2)}</td>
+                                                    <td className="px-10 py-6 text-right font-black text-sm text-red-500">- R$ {mBoosts.toFixed(2)}</td>
+                                                    <td className="px-10 py-6 text-right font-black text-lg text-secondary">R$ {(mOrders - mCommission - mBoosts).toFixed(2)}</td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </section>
                         </div>
                     )}
                 </div>
@@ -474,9 +587,13 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                     <div className="bg-secondary/10 p-3 rounded-2xl">
                                         <Store className="text-secondary" />
                                     </div>
-                                    <h3 className="text-2xl font-black italic uppercase">Novo Estabelecimento</h3>
+                                    <h3 className="text-2xl font-black italic uppercase">{editingMerchantId ? 'Editar Estabelecimento' : 'Novo Estabelecimento'}</h3>
                                 </div>
-                                <button onClick={() => setIsAddingMerchant(false)} className="text-gray-300 hover:text-gray-900 transition-colors">
+                                <button onClick={() => {
+                                    setIsAddingMerchant(false)
+                                    setEditingMerchantId(null)
+                                    setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
+                                }} className="text-gray-300 hover:text-gray-900 transition-colors">
                                     <XCircle size={24} />
                                 </button>
                             </div>
@@ -528,11 +645,25 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                         />
                                     </div>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-secondary uppercase tracking-widest px-2 italic">E-mail PagBank (Split de 15%)</label>
+                                    <input
+                                        type="email"
+                                        placeholder="Ex: financeiro@loja.com.br"
+                                        value={newMerchant.pagseguro_account}
+                                        onChange={(e) => setNewMerchant({ ...newMerchant, pagseguro_account: e.target.value })}
+                                        className="w-full bg-secondary/5 border border-secondary/10 p-5 rounded-2xl font-black text-sm outline-none focus:border-secondary transition-all text-secondary"
+                                    />
+                                </div>
                             </div>
 
                             <div className="p-10 bg-gray-50/50 flex gap-4">
                                 <button
-                                    onClick={() => setIsAddingMerchant(false)}
+                                    onClick={() => {
+                                        setIsAddingMerchant(false)
+                                        setEditingMerchantId(null)
+                                        setNewMerchant({ name: '', category: 'Mista', address: '', phone: '', description: '', pagseguro_account: '', boost_fee: 2.00 })
+                                    }}
                                     className="flex-1 py-5 rounded-2xl font-black text-xs uppercase text-gray-400 hover:bg-gray-100 transition-all"
                                 >
                                     Cancelar
@@ -542,8 +673,8 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                     disabled={actionLoading}
                                     className="flex-1 bg-secondary text-white py-5 rounded-2xl font-black text-xs uppercase shadow-xl shadow-secondary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                                 >
-                                    {actionLoading ? <Loader2 className="animate-spin" /> : <Plus />}
-                                    Finalizar Cadastro
+                                    {actionLoading ? <Loader2 className="animate-spin" /> : (editingMerchantId ? <Settings size={18} /> : <Plus />)}
+                                    {editingMerchantId ? 'Salvar Alterações' : 'Finalizar Cadastro'}
                                 </button>
                             </div>
                         </motion.div>
@@ -566,7 +697,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
             </AnimatePresence>
 
             {/* Modal: Confirmação de Exclusão (Custom) */}
-            <AnimatePresence>
+            < AnimatePresence >
                 {confirmingDelete && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <motion.div
@@ -604,9 +735,9 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                         </motion.div>
                     </div>
                 )}
-            </AnimatePresence>
+            </AnimatePresence >
             {/* Modal: Confirmação de Exclusão de Usuário */}
-            <AnimatePresence>
+            < AnimatePresence >
                 {confirmingDeleteUser && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <motion.div
@@ -644,8 +775,8 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                         </motion.div>
                     </div>
                 )}
-            </AnimatePresence>
-        </div>
+            </AnimatePresence >
+        </div >
     )
 }
 
