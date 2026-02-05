@@ -236,8 +236,8 @@ function SuperAdminPanel({ userData, onLogout }) {
                 <div className="bg-white rounded-[40px] md:rounded-[50px] shadow-sm border border-gray-100 overflow-hidden min-h-[600px]">
                     <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none bg-gray-50/30 relative">
                         {[
-                            { id: 'users', label: 'Gestão de Usuários', icon: <Users size={16} /> },
-                            { id: 'merchants', label: 'Gestão de Lojistas', icon: <Store size={16} /> },
+                            { id: 'users', label: 'Gestão de Lojistas', icon: <Users size={16} /> },
+                            { id: 'merchants', label: 'Estabelecimentos', icon: <Store size={16} /> },
                             { id: 'overview', label: 'Estatísticas', icon: <BarChart size={16} /> },
                             { id: 'financial', label: 'Financeiro', icon: <DollarSign size={16} /> }
                         ].map((tab) => (
@@ -426,7 +426,10 @@ function SuperAdminPanel({ userData, onLogout }) {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {merchants.map(m => (
+                                    {merchants.filter(m =>
+                                        m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        m.category?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    ).map(m => (
                                         <div key={m.id} className="bg-surface-soft p-6 rounded-[40px] border border-gray-100 hover:border-secondary/20 transition-all group">
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 group-hover:scale-110 transition-transform">
@@ -439,7 +442,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                                             <div className="space-y-1">
                                                 <h4 className="text-sm font-black uppercase text-gray-900 group-hover:text-secondary transition-colors">{m.name}</h4>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
-                                                    <MapPin size={10} /> {m.address.slice(0, 30)}...
+                                                    <MapPin size={10} /> {m.address ? m.address.slice(0, 30) + '...' : 'Endereço não informado'}
                                                 </p>
                                             </div>
 
