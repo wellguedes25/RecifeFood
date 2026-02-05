@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 
-function StoreDetails({ store, onBack, onAddItem, userData }) {
+function StoreDetails({ store, onBack, onAddItem, userData, cart }) {
     const [quantities, setQuantities] = useState({})
     const [isFollowing, setIsFollowing] = useState(false)
 
@@ -12,6 +12,19 @@ function StoreDetails({ store, onBack, onAddItem, userData }) {
             setIsFollowing(true)
         }
     }, [userData, store.id])
+
+    // Pre-fill quantities from cart
+    useEffect(() => {
+        if (cart && store.bags) {
+            const initialQuantities = {}
+            cart.forEach(item => {
+                if (item.store.id === store.id) {
+                    initialQuantities[item.bag.id] = item.quantity
+                }
+            })
+            setQuantities(initialQuantities)
+        }
+    }, [cart, store.id, store.bags])
 
     const toggleFollow = async () => {
         if (!userData) return alert('Faça login para seguir lojas!')
@@ -233,7 +246,7 @@ function StoreDetails({ store, onBack, onAddItem, userData }) {
                             onClick={() => onAddItem(quantities)}
                             className="w-full bg-primary hover:bg-[#C49232] text-white py-4 rounded-2xl font-black text-xl shadow-xl shadow-primary/30 active:scale-95 transition-all flex items-center justify-between px-8"
                         >
-                            <span>RESERVAR AGORA</span>
+                            <span>ADICIONAR ÀS RESERVAS</span>
                             <span className="italic">R$ {totalPrice.toFixed(2)}</span>
                         </button>
                     </motion.div>

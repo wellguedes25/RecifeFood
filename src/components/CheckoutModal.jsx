@@ -1,17 +1,29 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CreditCard, QrCode, Copy, CheckCircle2, Loader2, ShieldCheck, Clock } from 'lucide-react'
+import { X, CreditCard, QrCode, Copy, CheckCircle2, Loader2, ShieldCheck, Clock, Store } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
+function CheckoutModal({ cart, onConfirm, onClose, onRemoveItem, userData }) {
     const [step, setStep] = useState('summary') // summary, pix, success
     const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState(false)
     const [pixData, setPixData] = useState(null)
-    const [orderId, setOrderId] = useState(null)
     const [paymentMethod, setPaymentMethod] = useState('pix') // pix, card, saved_card
     const [cardData, setCardData] = useState({ number: '', name: '', expiry: '', cvc: '' })
     const [saveCard, setSaveCard] = useState(true)
+
+    // Group items by merchant
+    const groupedItems = cart.reduce((acc, item) => {
+        const storeId = item.store.id
+        if (!acc[storeId]) {
+            acc[storeId] = {
+                store: item.store,
+                items: []
+            }
+        }
+        acc[storeId].items.push(item)
+        return acc
+    }, {})
 
     // Check if user has a saved card
     useEffect(() => {
@@ -20,9 +32,8 @@ function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
         }
     }, [userData])
 
-    const total = Object.entries(items).reduce((acc, [id, qty]) => {
-        const bag = store.bags.find(b => b.id === id)
-        return acc + (bag?.discounted_price || 0) * qty
+    const total = cart.reduce((acc, item) => {
+        return acc + (item.bag.discounted_price * item.quantity)
     }, 0)
 
     const handleProcessPayment = async () => {
@@ -41,23 +52,19 @@ function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("Usuário não autenticado")
 
-            // Create order
-            const [bagId, qty] = Object.entries(items).find(([_, q]) => q > 0)
-            const bag = store.bags.find(b => b.id === bagId)
-
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    user_id: user.id,
-                    bag_id: bagId,
-                    amount: bag.discounted_price * qty,
-                    status: 'completed', // For card, we simulate instant confirmation
-                    payment_method: 'card'
-                })
-                .select()
-                .single()
-
-            if (orderError) throw orderError
+            // Create orders in sequence
+            for (const item of cart) {
+                const { error: orderError } = await supabase
+                    .from('orders')
+                    .insert({
+                        user_id: user.id,
+                        bag_id: item.bag.id,
+                        amount: item.bag.discounted_price * item.quantity,
+                        status: 'completed', // For card, we simulate instant confirmation
+                        payment_method: 'card'
+                    })
+                if (orderError) throw orderError
+            }
 
             // Save card info if requested (Mockup)
             if (saveCard && paymentMethod === 'card') {
@@ -84,32 +91,34 @@ function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
     const handlePixPayment = async () => {
         setIsLoading(true)
         try {
-            // 1. Criar o pedido no Banco como 'pending'
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("Usuário não autenticado")
 
-            // Pegamos o primeiro item (simplificação: um tipo de sacola por vez)
-            const [bagId, qty] = Object.entries(items).find(([_, q]) => q > 0)
-            const bag = store.bags.find(b => b.id === bagId)
+            // Multi-item Pix is complex because the Edge Function expects one orderId
+            // For now, we'll create the orders and use the first one as reference for Pix
+            // In a production environment, you'd create one 'parent' order or adjust the API
 
-            const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                    user_id: user.id,
-                    bag_id: bagId,
-                    amount: bag.discounted_price * qty,
-                    status: 'pending',
-                    payment_method: 'pix'
-                })
-                .select()
-                .single()
+            let firstOrderId = null;
+            for (const item of cart) {
+                const { data: order, error: orderError } = await supabase
+                    .from('orders')
+                    .insert({
+                        user_id: user.id,
+                        bag_id: item.bag.id,
+                        amount: item.bag.discounted_price * item.quantity,
+                        status: 'pending',
+                        payment_method: 'pix'
+                    })
+                    .select()
+                    .single()
 
-            if (orderError) throw orderError
-            setOrderId(order.id)
+                if (orderError) throw orderError
+                if (!firstOrderId) firstOrderId = order.id
+            }
 
             // 2. Chamar a Edge Function para gerar o PIX real no PagSeguro
             const { data, error: functionError } = await supabase.functions.invoke('process-payment', {
-                body: { orderId: order.id, paymentMethod: 'pix' }
+                body: { orderId: firstOrderId, paymentMethod: 'pix' }
             })
 
             if (functionError) throw functionError
@@ -170,8 +179,8 @@ function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
                 {/* Header */}
                 <div className="p-6 border-b border-gray-50 flex items-center justify-between">
                     <div>
-                        <h3 className="text-xl font-black italic uppercase text-gray-900 leading-tight">Pagamento</h3>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{store.name}</p>
+                        <h3 className="text-xl font-black italic uppercase text-gray-900 leading-tight">Checkout</h3>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{cart.length} itens no total</p>
                     </div>
                     <button onClick={onClose} className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:text-primary transition-all">
                         <X size={24} />
@@ -182,26 +191,42 @@ function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
                     {step === 'summary' && (
                         <div className="space-y-6">
                             {/* Summary Card */}
-                            <div className="bg-surface-soft p-6 rounded-[32px] space-y-4">
-                                {Object.entries(items).map(([id, qty]) => {
-                                    const bag = store.bags.find(b => b.id === id)
-                                    return (
-                                        <div key={id} className="flex justify-between items-center">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary border border-primary/10">
-                                                    <span className="font-black text-sm">{qty}x</span>
-                                                </div>
-                                                <p className="text-xs font-black uppercase text-gray-800">{bag.title}</p>
-                                            </div>
-                                            <p className="text-sm font-black text-gray-900 italic">R$ {(bag.discounted_price * qty).toFixed(2)}</p>
+                            <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                                {Object.values(groupedItems).map(group => (
+                                    <div key={group.store.id} className="bg-surface-soft p-5 rounded-[32px] space-y-3">
+                                        <div className="flex items-center gap-2 px-1">
+                                            <Store size={14} className="text-primary" />
+                                            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{group.store.name}</p>
                                         </div>
-                                    )
-                                })}
-                                <div className="h-[1px] bg-gray-200/50 w-full"></div>
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs font-black text-gray-400 uppercase">Total a Pagar</p>
-                                    <p className="text-2xl font-black text-secondary italic">R$ {total.toFixed(2)}</p>
-                                </div>
+                                        {group.items.map(item => (
+                                            <div key={item.bag.id} className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center text-primary border border-primary/10">
+                                                        <span className="font-black text-[10px]">{item.quantity}x</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black uppercase text-gray-800 leading-tight">{item.bag.title}</p>
+                                                        <p className="text-[9px] font-bold text-gray-400 italic">R$ {item.bag.discounted_price.toFixed(2)} un.</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-xs font-black text-gray-900 italic">R$ {(item.bag.discounted_price * item.quantity).toFixed(2)}</p>
+                                                    <button
+                                                        onClick={() => onRemoveItem(item.bag.id)}
+                                                        className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="bg-surface-soft p-6 rounded-[32px] flex justify-between items-center border-t border-gray-100">
+                                <p className="text-xs font-black text-gray-400 uppercase">Total Geral</p>
+                                <p className="text-2xl font-black text-secondary italic">R$ {total.toFixed(2)}</p>
                             </div>
 
                             {/* Payment Method Selector */}

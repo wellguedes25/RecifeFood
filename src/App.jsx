@@ -38,9 +38,9 @@ function App() {
     const [confirmOrder, setConfirmOrder] = useState(null)
     const [showLocationModal, setShowLocationModal] = useState(false)
     const [session, setSession] = useState(null)
-    const [orders, setOrders] = useState([])
     const [selectedOrderForChat, setSelectedOrderForChat] = useState(null)
-    const [checkoutItems, setCheckoutItems] = useState(null)
+    const [cart, setCart] = useState([]) // Array de { bag, store, quantity }
+    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
     const [viewMode, setViewMode] = useState('auto') // 'auto', 'app', 'web'
     const [locationName, setLocationName] = useState('Localizando...')
 
@@ -89,6 +89,9 @@ function App() {
 
         const savedFavorites = localStorage.getItem('favorites')
         if (savedFavorites) setFavorites(JSON.parse(savedFavorites))
+
+        const savedCart = localStorage.getItem('cart')
+        if (savedCart) setCart(JSON.parse(savedCart))
 
         return () => authListener?.subscription.unsubscribe()
     }, [])
@@ -273,19 +276,49 @@ function App() {
         setTimeout(() => setShowLocationModal(true), 1000)
     }
 
-    const handlePlaceOrder = (items) => {
+    const handleAddToCart = (store, quantities) => {
         if (!session) {
-            alert('Por favor, faça login para realizar o pedido.')
+            alert('Por favor, faça login para adicionar ao carrinho.')
             setUserStatus('landing')
             return
         }
-        setCheckoutItems(items)
+
+        setCart(prevCart => {
+            const nextCart = [...prevCart]
+            Object.entries(quantities).forEach(([bagId, qty]) => {
+                const bag = store.bags.find(b => b.id === bagId)
+                const existingIndex = nextCart.findIndex(item => item.bag.id === bagId)
+
+                if (qty > 0) {
+                    if (existingIndex > -1) {
+                        nextCart[existingIndex].quantity = qty
+                    } else {
+                        nextCart.push({ bag, store, quantity: qty })
+                    }
+                } else if (existingIndex > -1) {
+                    nextCart.splice(existingIndex, 1)
+                }
+            })
+            localStorage.setItem('cart', JSON.stringify(nextCart))
+            return nextCart
+        })
+        setSelectedStore(null)
+    }
+
+    const removeFromCart = (bagId) => {
+        setCart(prev => {
+            const next = prev.filter(item => item.bag.id !== bagId)
+            localStorage.setItem('cart', JSON.stringify(next))
+            return next
+        })
     }
 
     const handleConfirmCheckout = async () => {
         try {
             await fetchOrders(session.user.id)
-            setCheckoutItems(null) // Fecha o modal de checkout
+            setCart([])
+            localStorage.removeItem('cart')
+            setIsCheckoutOpen(false)
             setOrderSuccess(true)
 
             confetti({
@@ -719,6 +752,25 @@ function App() {
                                     </button>
                                 </nav>
                             </div>
+
+                            {/* Floating Cart Button */}
+                            {cart.length > 0 && (
+                                <button
+                                    onClick={() => setIsCheckoutOpen(true)}
+                                    className="fixed bottom-28 right-6 bg-secondary text-white p-5 rounded-[28px] shadow-2xl shadow-secondary/40 z-40 group hover:scale-110 active:scale-95 transition-all flex items-center gap-3"
+                                >
+                                    <div className="relative">
+                                        <ShoppingBag size={24} />
+                                        <span className="absolute -top-1 -right-1 bg-white text-secondary w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-secondary shadow-lg">
+                                            {cart.reduce((acc, curr) => acc + curr.quantity, 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col items-start pr-1">
+                                        <p className="text-[10px] font-black uppercase opacity-70 leading-none">Checkout</p>
+                                        <p className="text-sm font-black italic">R$ {cart.reduce((acc, curr) => acc + (curr.bag.discounted_price * curr.quantity), 0).toFixed(2)}</p>
+                                    </div>
+                                </button>
+                            )}
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -728,8 +780,9 @@ function App() {
                         <StoreDetails
                             store={selectedStore}
                             userData={userData}
+                            cart={cart}
                             onBack={() => setSelectedStore(null)}
-                            onAddItem={(items) => handlePlaceOrder(items)}
+                            onAddItem={(items) => handleAddToCart(selectedStore, items)}
                         />
                     )}
                 </AnimatePresence>
@@ -779,13 +832,13 @@ function App() {
                         />
                     )}
 
-                    {checkoutItems && (
+                    {isCheckoutOpen && (
                         <CheckoutModal
-                            items={checkoutItems}
-                            store={selectedStore}
+                            cart={cart}
                             onConfirm={handleConfirmCheckout}
+                            onClose={() => setIsCheckoutOpen(false)}
+                            onRemoveItem={removeFromCart}
                             userData={userData}
-                            onClose={() => setCheckoutItems(null)}
                         />
                     )}
                 </AnimatePresence>
