@@ -73,6 +73,10 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     }
 
     const toggleUserRole = async (userId, currentRole) => {
+        if (userId === userData.id) {
+            showNotify('error', 'AÇÃO NEGADA', 'Você não pode alterar seu próprio cargo.')
+            return
+        }
         const newRole = currentRole === 'customer' ? 'merchant' : 'customer'
         try {
             const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
@@ -171,8 +175,8 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                             key={item.id}
                             onClick={() => setActiveTab(item.id)}
                             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-tight transition-all ${activeTab === item.id
-                                    ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
-                                    : 'text-gray-400 hover:bg-surface-soft hover:text-gray-900'
+                                ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
+                                : 'text-gray-400 hover:bg-surface-soft hover:text-gray-900'
                                 }`}
                         >
                             <item.icon size={20} />
@@ -327,8 +331,8 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                                 <button
                                                     onClick={() => toggleUserRole(u.id, u.role)}
                                                     className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${u.role === 'merchant'
-                                                            ? 'bg-secondary/5 text-secondary border-secondary/10 hover:bg-secondary hover:text-white'
-                                                            : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-500 hover:text-white'
+                                                        ? 'bg-secondary/5 text-secondary border-secondary/10 hover:bg-secondary hover:text-white'
+                                                        : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-500 hover:text-white'
                                                         }`}
                                                 >
                                                     {u.role === 'merchant' ? 'LOJISTA' : 'CLIENTE'}
@@ -385,8 +389,8 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                         <button
                                             onClick={() => togglePromotion(m.id, m.is_promoted)}
                                             className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${m.is_promoted
-                                                    ? 'bg-yellow-100 text-yellow-600'
-                                                    : 'bg-surface-soft text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'
+                                                ? 'bg-yellow-100 text-yellow-600'
+                                                : 'bg-surface-soft text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'
                                                 }`}
                                         >
                                             <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />

@@ -47,15 +47,17 @@ function App() {
         const init = async () => {
             console.log('Iniciando App...')
             try {
-                const { data: { session } } = await supabase.auth.getSession()
+                const { data, error } = await supabase.auth.getSession()
+                if (error) throw error
+
+                const session = data?.session
                 setSession(session)
 
                 if (session) {
                     console.log('Sessão encontrada, buscando dados...')
-                    // Move status to main immediately to avoid getting stuck on loader
+                    await fetchUserProfile(session.user.id, session.user)
+                    await fetchOrders(session.user.id)
                     setUserStatus('main')
-                    fetchUserProfile(session.user.id)
-                    fetchOrders(session.user.id)
                 } else {
                     console.log('Nenhuma sessão encontrada.')
                     setUserStatus('landing')
@@ -70,11 +72,11 @@ function App() {
 
         init()
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
             console.log('Mudança de Auth:', _event)
             setSession(session)
             if (session) {
-                fetchUserProfile(session.user.id)
+                fetchUserProfile(session.user.id, session.user)
                 fetchOrders(session.user.id)
                 setUserStatus('main')
             } else {
@@ -87,10 +89,10 @@ function App() {
         const savedFavorites = localStorage.getItem('favorites')
         if (savedFavorites) setFavorites(JSON.parse(savedFavorites))
 
-        return () => subscription.unsubscribe()
+        return () => authListener?.subscription.unsubscribe()
     }, [])
 
-    const fetchUserProfile = async (userId) => {
+    const fetchUserProfile = async (userId, authUser = null) => {
         try {
             // 1. Get database profile
             const { data: profileData, error: profileError } = await supabase
@@ -99,8 +101,19 @@ function App() {
                 .eq('id', userId)
                 .single()
 
-            // 2. Get auth metadata as fallback/enrichment
-            const { data: { user }, error: authError } = await supabase.auth.getUser()
+            // 2. Use provided authUser or fetch it (fallback)
+            let user = authUser
+            if (!user) {
+                const { data: userData } = await supabase.auth.getUser()
+                user = userData?.user
+            }
+
+            let finalRole = profileData?.role || 'customer'
+
+            // Critical Fallback: Ensure the main admin always has access
+            if (user?.email === 'wellguedes@gmail.com') {
+                finalRole = 'superadmin'
+            }
 
             const mergedData = {
                 id: userId,
@@ -109,11 +122,12 @@ function App() {
                 cpf: profileData?.cpf || user?.user_metadata?.cpf,
                 phone: profileData?.phone || user?.user_metadata?.phone,
                 avatar_url: profileData?.avatar_url,
-                role: profileData?.role || 'customer',
+                role: finalRole,
                 establishment_id: profileData?.establishment_id,
                 created_at: profileData?.created_at || user?.created_at
             }
 
+            console.log('User Profile Loaded:', { email: mergedData.email, role: mergedData.role })
             setUserData(mergedData)
         } catch (error) {
             console.error('Error fetching profile:', error)
@@ -182,27 +196,20 @@ function App() {
 
     const fetchData = async () => {
         setLoading(true)
+        console.log('Buscando estabelecimentos...')
         try {
-            // Fetch establishments 
+            // Fetch establishments - removed is_open: true for debugging visibility
             const { data, error } = await supabase
                 .from('establishments')
                 .select(`
                     *,
                     bags(*)
                 `)
-                .eq('is_open', true)
 
+            if (error) throw error
             if (data) {
-                // Temporarily show all for debugging visibility
+                console.log(`${data.length} estabelecimentos encontrados.`)
                 setEstablishments(data)
-                /* 
-                const openStores = data.filter(store => {
-                    const hasActiveBags = store.bags?.some(b => b.is_active)
-                    const isWithinHours = checkStoreStatus(store.operating_hours)
-                    return hasActiveBags && isWithinHours
-                })
-                setEstablishments(openStores)
-                */
             }
         } catch (error) {
             console.error('Error fetching data:', error)
@@ -313,8 +320,8 @@ function App() {
     }
 
     return (
-        <div className={`min-h-screen bg-surface-soft flex justify-center ${viewMode === 'web' ? 'p-0' : ''}`}>
-            <div className={`${viewMode === 'web' ? 'w-full' : 'w-full max-w-2xl bg-white shadow-2xl'} relative min-h-screen flex flex-col overflow-hidden`}>
+        <div className={`min-h-screen bg-surface-soft flex justify-center ${viewMode === 'web' ? 'p-0 overflow-auto' : ''}`}>
+            <div className={`${viewMode === 'web' ? 'w-full min-h-screen' : 'w-full max-w-2xl bg-white shadow-2xl min-h-screen'} relative flex flex-col overflow-hidden`}>
                 <AnimatePresence mode="wait">
                     {userStatus === 'landing' ? (
                         <Login

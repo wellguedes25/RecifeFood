@@ -97,6 +97,10 @@ function SuperAdminPanel({ userData, onLogout }) {
     }
 
     const toggleUserRole = async (userId, currentRole) => {
+        if (userId === userData.id) {
+            showNotify('error', 'PROIBIDO', 'Você não pode alterar seu próprio nível de acesso.')
+            return
+        }
         const newRole = currentRole === 'customer' ? 'merchant' : 'customer'
         try {
             const { error } = await supabase

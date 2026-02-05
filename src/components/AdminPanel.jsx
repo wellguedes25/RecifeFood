@@ -54,7 +54,10 @@ function AdminPanel({ userData, onLogout }) {
         pending: 0,
         completed: 0,
         revenue: 0,
-        rating: 0
+        rating: 0,
+        kgSaved: 0,
+        savingsGenerated: 0,
+        boostsUsed: 0
     })
 
     // Premium Notifications
