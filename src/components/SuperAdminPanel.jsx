@@ -320,7 +320,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                     >
                                                         <option value="">VINCULAR AO ESTABELECIMENTO...</option>
                                                         {merchants.map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+                                                            <option key={m.id} value={m.id}>{m.name?.toUpperCase() || 'SEM NOME'}</option>
                                                         ))}
                                                     </select>
                                                     {u.establishment_id && (
@@ -390,7 +390,7 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                             >
                                                                 <option value="">VINCULAR LOJA...</option>
                                                                 {merchants.map(m => (
-                                                                    <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+                                                                    <option key={m.id} value={m.id}>{m.name?.toUpperCase() || 'SEM NOME'}</option>
                                                                 ))}
                                                             </select>
                                                             {u.establishment_id && (

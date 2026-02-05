@@ -359,7 +359,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                                     >
                                                         <option value="">NÃO VINCULADO</option>
                                                         {merchants.map(m => (
-                                                            <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+                                                            <option key={m.id} value={m.id}>{m.name?.toUpperCase() || 'SEM NOME'}</option>
                                                         ))}
                                                     </select>
                                                 </div>
