@@ -5,7 +5,7 @@ import {
     Mail, Phone, MapPin, ArrowRight, Star, BarChart, PieChart,
     ChevronRight, UserPlus, Filter, Zap, LayoutDashboard, DollarSign,
     CheckCircle2, XCircle, Search, Trash2, Power, Smartphone, Loader2,
-    Building2, Plus, LogIn
+    Building2, Plus, LogIn, AlertTriangle
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -34,6 +34,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     const [notification, setNotification] = useState(null)
     const [actionLoading, setActionLoading] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [confirmingDelete, setConfirmingDelete] = useState(null)
 
     useEffect(() => {
         fetchSuperData()
@@ -81,7 +82,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
         try {
             const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
             if (error) throw error
-            showNotify('success', 'CARGO ATUALIZADO', `Usuário agora é ${newRole === 'merchant' ? 'LOJISTA' : 'CLIENTE'}`)
+            showNotify('success', 'CARGO ATUALIZADO', `Usuário agora é ${newRole === 'merchant' ? 'LOJISTA' : 'CLIENTE'} `)
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'ERRO', error.message)
@@ -117,14 +118,22 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     }
 
     const handleDeleteMerchant = async (merchantId) => {
-        if (!confirm('Deseja realmente excluir este estabelecimento? Esta ação é irreversível e removerá todos os vínculos.')) return
+        setConfirmingDelete(merchantId)
+    }
+
+    const executeDeleteMerchant = async () => {
+        if (!confirmingDelete) return
+        setActionLoading(true)
         try {
-            const { error } = await supabase.from('establishments').delete().eq('id', merchantId)
+            const { error } = await supabase.from('establishments').delete().eq('id', confirmingDelete)
             if (error) throw error
             showNotify('success', 'ESTABELECIMENTO REMOVIDO', 'Os dados foram excluídos do sistema.')
+            setConfirmingDelete(null)
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'ERRO AO EXCLUIR', error.message)
+        } finally {
+            setActionLoading(false)
         }
     }
 
@@ -186,10 +195,10 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                         <button
                             key={item.id}
                             onClick={() => setActiveTab(item.id)}
-                            className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-tight transition-all ${activeTab === item.id
+                            className={`w - full flex items - center gap - 4 px - 6 py - 4 rounded - 2xl font - black text - sm uppercase tracking - tight transition - all ${activeTab === item.id
                                 ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
                                 : 'text-gray-400 hover:bg-surface-soft hover:text-gray-900'
-                                }`}
+                                } `}
                         >
                             <item.icon size={20} />
                             {item.label}
@@ -255,12 +264,12 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                             <div className="grid grid-cols-4 gap-8">
                                 {[
                                     { label: 'Total de Vendas', value: stats.totalOrders, icon: TrendingUp, color: 'bg-green-500' },
-                                    { label: 'Volume (GMV)', value: `R$ ${stats.volumeTotal.toFixed(2)}`, icon: DollarSign, color: 'bg-blue-500' },
-                                    { label: 'Comissões', value: `R$ ${stats.commission.toFixed(2)}`, icon: PieChart, color: 'bg-secondary' },
-                                    { label: 'Taxas Adicionais', value: `R$ ${stats.boostRevenue.toFixed(2)}`, icon: Zap, color: 'bg-orange-500' },
+                                    { label: 'Volume (GMV)', value: `R$ ${stats.volumeTotal.toFixed(2)} `, icon: DollarSign, color: 'bg-blue-500' },
+                                    { label: 'Comissões', value: `R$ ${stats.commission.toFixed(2)} `, icon: PieChart, color: 'bg-secondary' },
+                                    { label: 'Taxas Adicionais', value: `R$ ${stats.boostRevenue.toFixed(2)} `, icon: Zap, color: 'bg-orange-500' },
                                 ].map((card, i) => (
                                     <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-50 space-y-4">
-                                        <div className={`${card.color} w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg`}>
+                                        <div className={`${card.color} w - 12 h - 12 rounded - 2xl flex items - center justify - center text - white shadow - lg`}>
                                             <card.icon size={24} />
                                         </div>
                                         <div>
@@ -282,7 +291,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                             <div key={i} className="w-12 bg-secondary/10 rounded-t-xl relative group">
                                                 <motion.div
                                                     initial={{ height: 0 }}
-                                                    animate={{ height: `${h}%` }}
+                                                    animate={{ height: `${h}% ` }}
                                                     className="w-full bg-secondary rounded-t-xl group-hover:bg-primary transition-colors"
                                                 />
                                                 <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-gray-300 uppercase">Seg</span>
@@ -342,10 +351,10 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                             <td className="px-8 py-6">
                                                 <button
                                                     onClick={() => toggleUserRole(u.id, u.role)}
-                                                    className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${u.role === 'merchant'
+                                                    className={`px - 4 py - 1.5 rounded - full text - [10px] font - black uppercase tracking - widest border transition - all ${u.role === 'merchant'
                                                         ? 'bg-secondary/5 text-secondary border-secondary/10 hover:bg-secondary hover:text-white'
                                                         : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-500 hover:text-white'
-                                                        }`}
+                                                        } `}
                                                 >
                                                     {u.role === 'merchant' ? 'LOJISTA' : 'CLIENTE'}
                                                 </button>
@@ -400,10 +409,10 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                     <div className="mt-10 flex gap-4">
                                         <button
                                             onClick={() => togglePromotion(m.id, m.is_promoted)}
-                                            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${m.is_promoted
+                                            className={`flex - 1 flex items - center justify - center gap - 2 py - 4 rounded - 2xl font - black text - [10px] uppercase tracking - widest transition - all ${m.is_promoted
                                                 ? 'bg-yellow-100 text-yellow-600'
                                                 : 'bg-surface-soft text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'
-                                                }`}
+                                                } `}
                                         >
                                             <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
                                             {m.is_promoted ? 'Promovido' : 'Impulsionar'}
@@ -514,7 +523,7 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                 )}
 
                 {notification && (
-                    <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} className="fixed bottom-12 right-12 z-[500]">
+                    <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} className="fixed bottom-12 right-12 z-[500] pointer-events-none">
                         <div className={`bg-white p-6 rounded-[28px] shadow-2xl border-l-8 flex items-center gap-4 min-w-[300px] ${notification.type === 'success' ? 'border-secondary' : 'border-red-500'}`}>
                             <div className={`p-3 rounded-xl ${notification.type === 'success' ? 'bg-secondary/10 text-secondary' : 'bg-red-50 text-red-500'}`}>
                                 {notification.type === 'success' ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
@@ -525,6 +534,47 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                             </div>
                         </div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Confirmação de Exclusão (Custom) */}
+            <AnimatePresence>
+                {confirmingDelete && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white w-full max-w-md rounded-[48px] shadow-2xl overflow-hidden p-10 space-y-8"
+                        >
+                            <div className="bg-red-50 w-24 h-24 rounded-[40px] flex items-center justify-center mx-auto">
+                                <AlertTriangle className="text-red-500 w-12 h-12" />
+                            </div>
+
+                            <div className="text-center space-y-3">
+                                <h3 className="text-2xl font-black italic uppercase text-gray-900 leading-none">Atenção Crítica!</h3>
+                                <p className="text-gray-500 text-sm font-bold leading-relaxed px-6">
+                                    Deseja mesmo excluir este estabelecimento? Esta ação apagará permanentemente o perfil, produtos e faturamento vinculado.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setConfirmingDelete(null)}
+                                    className="flex-1 bg-surface-soft text-gray-400 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest hover:bg-gray-100 transition-all"
+                                >
+                                    CANCELAR
+                                </button>
+                                <button
+                                    onClick={executeDeleteMerchant}
+                                    disabled={actionLoading}
+                                    className="flex-[1.5] bg-red-500 text-white py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-red-200 hover:bg-red-600 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {actionLoading ? <Loader2 className="animate-spin text-white" size={18} /> : 'SIM, EXCLUIR AGORA'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>

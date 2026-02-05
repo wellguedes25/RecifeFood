@@ -28,7 +28,8 @@ import {
     UserPlus,
     Filter,
     Zap,
-    Trash2
+    Trash2,
+    AlertTriangle
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -57,6 +58,7 @@ function SuperAdminPanel({ userData, onLogout }) {
     const [notification, setNotification] = useState(null)
     const [actionLoading, setActionLoading] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [confirmingDelete, setConfirmingDelete] = useState(null) // ID of merchant to delete
 
     useEffect(() => {
         fetchSuperData()
@@ -169,14 +171,22 @@ function SuperAdminPanel({ userData, onLogout }) {
     }
 
     const handleDeleteMerchant = async (merchantId) => {
-        if (!confirm('Deseja excluir permanentemente este estabelecimento? Todas as sacolas vinculadas também serão removidas.')) return
+        setConfirmingDelete(merchantId)
+    }
+
+    const executeDeleteMerchant = async () => {
+        if (!confirmingDelete) return
+        setActionLoading(true)
         try {
-            const { error } = await supabase.from('establishments').delete().eq('id', merchantId)
+            const { error } = await supabase.from('establishments').delete().eq('id', confirmingDelete)
             if (error) throw error
             showNotify('success', 'ESTABELECIMENTO REMOVIDO', 'Os dados foram apagados com sucesso.')
+            setConfirmingDelete(null)
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'ERRO AO EXCLUIR', error.message)
+        } finally {
+            setActionLoading(false)
         }
     }
 
@@ -722,6 +732,47 @@ function SuperAdminPanel({ userData, onLogout }) {
                             </div>
                         </div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Confirmação de Exclusão (Personalizado) */}
+            <AnimatePresence>
+                {confirmingDelete && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end sm:items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: 100 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 100 }}
+                            className="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden p-8 space-y-6"
+                        >
+                            <div className="bg-red-50 w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto">
+                                <AlertTriangle className="text-red-500 w-10 h-10" />
+                            </div>
+
+                            <div className="text-center space-y-2">
+                                <h3 className="text-xl font-black italic uppercase text-gray-900 leading-none">Tem certeza?</h3>
+                                <p className="text-gray-500 text-[11px] font-bold leading-relaxed px-4 text-center uppercase">
+                                    ESTA AÇÃO É IRREVERSÍVEL. TODAS AS SACOLAS E DADOS DESTE ESTABELECIMENTO SERÃO APAGADOS PERMANENTEMENTE.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={executeDeleteMerchant}
+                                    disabled={actionLoading}
+                                    className="w-full bg-red-500 text-white p-5 rounded-[24px] font-black uppercase text-xs shadow-lg shadow-red-200 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {actionLoading ? <Loader2 className="animate-spin" size={16} /> : 'SIM, EXCLUIR TUDO'}
+                                </button>
+                                <button
+                                    onClick={() => setConfirmingDelete(null)}
+                                    className="w-full bg-surface-soft text-gray-400 p-5 rounded-[24px] font-black uppercase text-xs active:scale-95 transition-all"
+                                >
+                                    CANCELAR
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
