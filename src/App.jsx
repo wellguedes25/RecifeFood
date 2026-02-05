@@ -276,11 +276,68 @@ function App() {
         setTimeout(() => setShowLocationModal(true), 1000)
     }
 
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return 0
+        const R = 6371 // km
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLon = (lon2 - lon1) * Math.PI / 180
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
+
+    const parseTime = (timeStr) => {
+        if (!timeStr) return 0
+        const [h, m] = timeStr.trim().split(':')[0].includes(':') ? timeStr.split(':').map(Number) : [parseInt(timeStr), 0]
+        // Handle windows like "18:00 - 20:00" or just "18:00"
+        const cleanTime = timeStr.split('-')[0].trim()
+        const [hh, mm] = cleanTime.split(':').map(Number)
+        return (hh || 0) * 60 + (mm || 0)
+    }
+
     const handleAddToCart = (store, quantities) => {
         if (!session) {
             alert('Por favor, faça login para adicionar ao carrinho.')
             setUserStatus('landing')
             return
+        }
+
+        // Conflict check
+        const conflicts = []
+        const newBags = Object.entries(quantities)
+            .filter(([_, qty]) => qty > 0)
+            .map(([id, _]) => store.bags.find(b => b.id === id))
+
+        if (newBags.length > 0) {
+            cart.forEach(cartItem => {
+                // 1. Distance check
+                if (cartItem.store.id !== store.id) {
+                    const dist = calculateDistance(
+                        cartItem.store.latitude, cartItem.store.longitude,
+                        store.latitude, store.longitude
+                    )
+                    if (dist > 5) { // Warning above 5km
+                        conflicts.push(`Atenção: ${store.name} está a ${dist.toFixed(1)}km de ${cartItem.store.name}. Verifique se terá tempo de ir aos dois bairros.`)
+                    }
+                }
+
+                // 2. Time check
+                newBags.forEach(newBag => {
+                    const t1 = parseTime(newBag.pickup_window)
+                    const t2 = parseTime(cartItem.bag.pickup_window)
+                    if (Math.abs(t1 - t2) < 30 && cartItem.store.id !== store.id) {
+                        conflicts.push(`Atenção: O horário de retirada em ${store.name} é quase o mesmo que em ${cartItem.store.name}.`)
+                    }
+                })
+            })
+        }
+
+        if (conflicts.length > 0) {
+            if (!confirm(conflicts.join('\n\n') + '\n\nDeseja adicionar mesmo assim?')) {
+                return
+            }
         }
 
         setCart(prevCart => {

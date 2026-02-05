@@ -66,7 +66,15 @@ function CheckoutModal({ cart, onConfirm, onClose, onRemoveItem, userData }) {
                 if (orderError) throw orderError
             }
 
-            // Save card info if requested (Mockup)
+            // Prepare receivers for split (if processing via a gateway that supports it)
+            const receivers = Object.values(groupedItems).map(group => ({
+                account_id: group.store.pagseguro_account,
+                amount: group.items.reduce((acc, item) => acc + (item.bag.discounted_price * item.quantity), 0)
+            })).filter(r => r.account_id)
+
+            // Here we would call the Card processing logic with Split info
+            // For now, it remains a successful mockup as requested
+            console.log('Split Payment logic for Card:', receivers)
             if (saveCard && paymentMethod === 'card') {
                 await supabase.from('profiles').update({
                     saved_card: JSON.stringify({
@@ -116,9 +124,19 @@ function CheckoutModal({ cart, onConfirm, onClose, onRemoveItem, userData }) {
                 if (!firstOrderId) firstOrderId = order.id
             }
 
-            // 2. Chamar a Edge Function para gerar o PIX real no PagSeguro
+            // 2. Prepare receivers list for Split Payment
+            const receivers = Object.values(groupedItems).map(group => ({
+                account_id: group.store.pagseguro_account,
+                amount: group.items.reduce((acc, item) => acc + (item.bag.discounted_price * item.quantity), 0)
+            })).filter(r => r.account_id)
+
+            // 3. Chamar a Edge Function para gerar o PIX real no PagSeguro
             const { data, error: functionError } = await supabase.functions.invoke('process-payment', {
-                body: { orderId: firstOrderId, paymentMethod: 'pix' }
+                body: {
+                    orderId: firstOrderId,
+                    paymentMethod: 'pix',
+                    receivers: receivers
+                }
             })
 
             if (functionError) throw functionError
