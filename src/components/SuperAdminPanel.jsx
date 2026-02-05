@@ -167,6 +167,18 @@ function SuperAdminPanel({ userData, onLogout }) {
         }
     }
 
+    const handleDeleteMerchant = async (merchantId) => {
+        if (!confirm('Deseja excluir permanentemente este estabelecimento? Todas as sacolas vinculadas também serão removidas.')) return
+        try {
+            const { error } = await supabase.from('establishments').delete().eq('id', merchantId)
+            if (error) throw error
+            showNotify('success', 'ESTABELECIMENTO REMOVIDO', 'Os dados foram apagados com sucesso.')
+            fetchSuperData()
+        } catch (error) {
+            showNotify('error', 'ERRO AO EXCLUIR', error.message)
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex-1 min-h-screen bg-surface-soft flex flex-col items-center justify-center p-8 space-y-4">
@@ -453,6 +465,12 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                 >
                                                     <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
                                                     {m.is_promoted ? 'Promovido' : 'Impulsionar'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteMerchant(m.id)}
+                                                    className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                                                >
+                                                    <Trash2 size={16} />
                                                 </button>
                                                 <button className="p-3 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all">
                                                     <ExternalLink size={16} />

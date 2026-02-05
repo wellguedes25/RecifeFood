@@ -116,6 +116,18 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
         }
     }
 
+    const handleDeleteMerchant = async (merchantId) => {
+        if (!confirm('Deseja realmente excluir este estabelecimento? Esta ação é irreversível e removerá todos os vínculos.')) return
+        try {
+            const { error } = await supabase.from('establishments').delete().eq('id', merchantId)
+            if (error) throw error
+            showNotify('success', 'ESTABELECIMENTO REMOVIDO', 'Os dados foram excluídos do sistema.')
+            fetchSuperData()
+        } catch (error) {
+            showNotify('error', 'ERRO AO EXCLUIR', error.message)
+        }
+    }
+
     const linkMerchantToStore = async (userId, storeId) => {
         try {
             const { error } = await supabase.from('profiles').update({ establishment_id: storeId, role: storeId ? 'merchant' : 'customer' }).eq('id', userId)
@@ -396,7 +408,10 @@ function SuperAdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                                             <Zap size={14} fill={m.is_promoted ? "currentColor" : "none"} />
                                             {m.is_promoted ? 'Promovido' : 'Impulsionar'}
                                         </button>
-                                        <button className="p-4 bg-surface-soft text-gray-400 rounded-2xl hover:text-red-500 hover:bg-red-50 transition-all">
+                                        <button
+                                            onClick={() => handleDeleteMerchant(m.id)}
+                                            className="p-4 bg-surface-soft text-gray-400 rounded-2xl hover:text-red-500 hover:bg-red-50 transition-all"
+                                        >
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
