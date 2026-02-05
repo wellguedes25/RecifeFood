@@ -53,7 +53,7 @@ function StoreDetails({ store, onBack, onAddItem, userData }) {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 50 }}
-            className="fixed inset-0 bg-black/5 z-[60] overflow-y-auto pb-32 flex justify-center"
+            className="fixed inset-0 bg-black/5 z-[60] overflow-y-auto pb-60 flex justify-center"
         >
             <div className="w-full max-w-2xl bg-white min-h-screen relative shadow-2xl">
                 {/* Hero Header */}

@@ -3,17 +3,83 @@ import { X, CreditCard, QrCode, Copy, CheckCircle2, Loader2, ShieldCheck, Clock 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-function CheckoutModal({ items, store, onConfirm, onClose }) {
+function CheckoutModal({ items, store, onConfirm, onClose, userData }) {
     const [step, setStep] = useState('summary') // summary, pix, success
     const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState(false)
     const [pixData, setPixData] = useState(null)
     const [orderId, setOrderId] = useState(null)
+    const [paymentMethod, setPaymentMethod] = useState('pix') // pix, card, saved_card
+    const [cardData, setCardData] = useState({ number: '', name: '', expiry: '', cvc: '' })
+    const [saveCard, setSaveCard] = useState(true)
+
+    // Check if user has a saved card
+    useEffect(() => {
+        if (userData?.saved_card) {
+            setPaymentMethod('saved_card')
+        }
+    }, [userData])
 
     const total = Object.entries(items).reduce((acc, [id, qty]) => {
         const bag = store.bags.find(b => b.id === id)
         return acc + (bag?.discounted_price || 0) * qty
     }, 0)
+
+    const handleProcessPayment = async () => {
+        if (paymentMethod === 'pix') {
+            await handlePixPayment()
+        } else {
+            // Both 'card' and 'saved_card' call handleCardPayment
+            // handleCardPayment will only save card details if paymentMethod is 'card' and saveCard is true
+            await handleCardPayment()
+        }
+    }
+
+    const handleCardPayment = async () => {
+        setIsLoading(true)
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) throw new Error("Usuário não autenticado")
+
+            // Create order
+            const [bagId, qty] = Object.entries(items).find(([_, q]) => q > 0)
+            const bag = store.bags.find(b => b.id === bagId)
+
+            const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                    user_id: user.id,
+                    bag_id: bagId,
+                    amount: bag.discounted_price * qty,
+                    status: 'completed', // For card, we simulate instant confirmation
+                    payment_method: 'card'
+                })
+                .select()
+                .single()
+
+            if (orderError) throw orderError
+
+            // Save card info if requested (Mockup)
+            if (saveCard && paymentMethod === 'card') {
+                await supabase.from('profiles').update({
+                    saved_card: JSON.stringify({
+                        brand: 'visa',
+                        last4: cardData.number.slice(-4),
+                        holder: cardData.name
+                    })
+                }).eq('id', user.id)
+            }
+
+            setStep('success')
+            setTimeout(() => onConfirm(), 2000)
+
+        } catch (error) {
+            console.error('Erro no pagamento:', error)
+            alert('Erro ao processar cartão: ' + (error.message || 'Dados inválidos.'))
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     const handlePixPayment = async () => {
         setIsLoading(true)
@@ -138,15 +204,129 @@ function CheckoutModal({ items, store, onConfirm, onClose }) {
                                 </div>
                             </div>
 
+                            {/* Payment Method Selector */}
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pagamento</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        onClick={() => setPaymentMethod('pix')}
+                                        className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${paymentMethod === 'pix' ? 'border-[#32BCAD] bg-[#32BCAD]/5 text-[#32BCAD]' : 'border-gray-100 bg-surface-soft text-gray-400'}`}
+                                    >
+                                        <QrCode size={20} />
+                                        <span className="text-[8px] font-black uppercase">PIX</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setPaymentMethod('card')}
+                                        className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${paymentMethod === 'card' ? 'border-secondary bg-secondary/5 text-secondary' : 'border-gray-100 bg-surface-soft text-gray-400'}`}
+                                    >
+                                        <CreditCard size={20} />
+                                        <span className="text-[8px] font-black uppercase">Cartão</span>
+                                    </button>
+                                    {userData?.saved_card && (
+                                        <button
+                                            onClick={() => setPaymentMethod('saved_card')}
+                                            className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${paymentMethod === 'saved_card' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-100 bg-surface-soft text-gray-400'}`}
+                                        >
+                                            <div className="relative">
+                                                <CreditCard size={20} />
+                                                <div className="absolute -top-1 -right-1 bg-primary w-2 h-2 rounded-full" />
+                                            </div>
+                                            <span className="text-[8px] font-black uppercase text-center">Salvo</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Saved Card Preview */}
+                            <AnimatePresence>
+                                {paymentMethod === 'saved_card' && userData?.saved_card && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="bg-gradient-to-br from-gray-900 to-black p-5 rounded-[28px] text-white flex justify-between items-center shadow-lg mb-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-white/10 p-2.5 rounded-xl">
+                                                    <CreditCard size={24} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">Visa Final {JSON.parse(userData.saved_card).last4}</p>
+                                                    <p className="text-sm font-black uppercase italic tracking-widest">{JSON.parse(userData.saved_card).holder}</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-primary/20 p-2 rounded-xl">
+                                                <CheckCircle2 size={18} className="text-primary" />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Card Form */}
+                            <AnimatePresence>
+                                {paymentMethod === 'card' && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="space-y-4 overflow-hidden"
+                                    >
+                                        <div className="space-y-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Número do Cartão"
+                                                value={cardData.number}
+                                                onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
+                                                className="w-full bg-surface-soft p-4 rounded-2xl font-bold text-xs border border-gray-100 outline-none focus:ring-2 ring-secondary/10"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Nome no Cartão"
+                                                value={cardData.name}
+                                                onChange={(e) => setCardData({ ...cardData, name: e.target.value })}
+                                                className="w-full bg-surface-soft p-4 rounded-2xl font-bold text-xs border border-gray-100 outline-none focus:ring-2 ring-secondary/10"
+                                            />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Validade (MM/AA)"
+                                                    value={cardData.expiry}
+                                                    onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
+                                                    className="w-full bg-surface-soft p-4 rounded-2xl font-bold text-xs border border-gray-100 outline-none focus:ring-2 ring-secondary/10"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="CVC"
+                                                    value={cardData.cvc}
+                                                    onChange={(e) => setCardData({ ...cardData, cvc: e.target.value })}
+                                                    className="w-full bg-surface-soft p-4 rounded-2xl font-bold text-xs border border-gray-100 outline-none focus:ring-2 ring-secondary/10"
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-3 px-2 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={saveCard}
+                                                    onChange={(e) => setSaveCard(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-secondary focus:ring-secondary"
+                                                />
+                                                <span className="text-[10px] font-bold text-gray-500 uppercase group-hover:text-gray-900 transition-colors">Salvar cartão para próximas compras</span>
+                                            </label>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             <button
-                                onClick={handlePixPayment}
+                                onClick={handleProcessPayment}
                                 disabled={isLoading}
-                                className="w-full bg-[#32BCAD] text-white p-6 rounded-[28px] font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-[#32BCAD]/20 active:scale-95 transition-all"
+                                className={`w-full text-white p-6 rounded-[28px] font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all ${paymentMethod === 'pix' ? 'bg-[#32BCAD] shadow-[#32BCAD]/20' : 'bg-secondary shadow-secondary/20'}`}
                             >
                                 {isLoading ? <Loader2 className="animate-spin" /> : (
                                     <>
-                                        <QrCode size={24} />
-                                        PAGAR COM PIX
+                                        {paymentMethod === 'pix' ? <QrCode size={24} /> : <CreditCard size={24} />}
+                                        {paymentMethod === 'pix' ? 'PAGAR COM PIX' : 'PAGAR COM CARTÃO'}
                                     </>
                                 )}
                             </button>

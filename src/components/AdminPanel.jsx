@@ -531,7 +531,7 @@ function AdminPanel({ userData, onLogout }) {
                 </div>
             </header>
 
-            <main className="flex-1 p-6 space-y-8 overflow-y-auto">
+            <main className="flex-1 p-6 space-y-8 overflow-y-auto pb-32">
                 {/* 1. DASHBOARD TAB */}
                 {activeTab === 'dashboard' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -889,7 +889,10 @@ function AdminPanel({ userData, onLogout }) {
                                 ) : (
                                     <div className="space-y-4">
                                         <p className="text-sm font-bold text-white/80">Aumente suas vendas aparecendo no topo para clientes em Recife.</p>
-                                        <button className="bg-white text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-primary hover:text-white transition-all active:scale-95">
+                                        <button
+                                            onClick={() => alert(`🚀 SOBRE O IMPULSO:\n\nAo impulsionar uma sacola, ela ganha destaque no carrossel de 'Destaques da Semana' para todos os clientes da sua região.\n\nBenefícios:\n- Até 40% mais visualizações\n- Selo de Urgente\n- Prioridade no Mapa\n\nTaxa: R$ ${establishment?.boost_fee || '2.00'} por sacola impulsionada.`)}
+                                            className="bg-white text-black px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-primary hover:text-white transition-all active:scale-95"
+                                        >
                                             SAIBA COMO IMPULSIONAR
                                         </button>
                                     </div>
@@ -1100,7 +1103,7 @@ function AdminPanel({ userData, onLogout }) {
                                 </button>
                             </div>
 
-                            <div className="p-8 overflow-y-auto space-y-6">
+                            <div className="p-6 overflow-y-auto space-y-6">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Título da Sacola</label>
@@ -1201,7 +1204,7 @@ function AdminPanel({ userData, onLogout }) {
                                 </div>
                             </div>
 
-                            <div className="p-8 border-t border-gray-100 bg-surface-soft/30">
+                            <div className="p-6 border-t border-gray-100 bg-surface-soft/30">
                                 <button
                                     onClick={handleSaveBag}
                                     disabled={actionLoading}

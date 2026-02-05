@@ -224,6 +224,32 @@ function UserProfile({ userData, stats, favorites, establishments, onBack, onLog
                                 </div>
                             </div>
                         </div>
+
+                        {/* Saved Cards */}
+                        <div className="pt-4 border-t border-gray-50 space-y-4">
+                            <h4 className="font-black text-gray-900 italic uppercase text-[10px] tracking-widest px-1">Cartões Salvos</h4>
+                            {userData?.saved_card ? (() => {
+                                const card = JSON.parse(userData.saved_card)
+                                return (
+                                    <div className="bg-gradient-to-br from-gray-800 to-black p-4 rounded-2xl text-white flex items-center justify-between shadow-lg">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-white/10 p-2 rounded-lg">
+                                                <CreditCard size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase opacity-60">Visa Final {card.last4}</p>
+                                                <p className="text-[11px] font-bold uppercase tracking-widest">{card.holder}</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/20 p-1.5 rounded-lg">
+                                            <ChevronRight size={14} />
+                                        </div>
+                                    </div>
+                                )
+                            })() : (
+                                <p className="text-[9px] font-bold text-gray-400 uppercase italic px-1">Nenhum cartão salvo para compras rápidas.</p>
+                            )}
+                        </div>
                     </div>
 
                     {/* Favorites Preview */}

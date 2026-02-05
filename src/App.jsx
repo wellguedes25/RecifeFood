@@ -125,6 +125,7 @@ function App() {
                 avatar_url: profileData?.avatar_url,
                 role: finalRole,
                 establishment_id: profileData?.establishment_id,
+                saved_card: profileData?.saved_card,
                 created_at: profileData?.created_at || user?.created_at
             }
 
@@ -783,6 +784,7 @@ function App() {
                             items={checkoutItems}
                             store={selectedStore}
                             onConfirm={handleConfirmCheckout}
+                            userData={userData}
                             onClose={() => setCheckoutItems(null)}
                         />
                     )}
