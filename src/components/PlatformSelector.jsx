@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Smartphone, Monitor, ChevronRight, Layout, ShieldCheck, Store } from 'lucide-react'
 
-function PlatformSelector({ role, onSelect }) {
+function PlatformSelector({ role, onSelect, userData }) {
     return (
         <div className="min-h-screen bg-surface-soft flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
             <div className="w-full max-w-md space-y-12">
@@ -14,7 +14,7 @@ function PlatformSelector({ role, onSelect }) {
                         <Layout className="text-primary w-10 h-10" />
                     </motion.div>
                     <div className="space-y-1">
-                        <h2 className="text-3xl font-black italic uppercase text-gray-900 leading-tight">Olá, {role === 'superadmin' ? 'Fundador' : 'Parceiro'}!</h2>
+                        <h2 className="text-3xl font-black italic uppercase text-gray-900 leading-tight">Olá, {userData?.full_name?.split(' ')[0] || (role === 'superadmin' ? 'Fundador' : 'Parceiro')}!</h2>
                         <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.2em]">Como deseja acessar o painel hoje?</p>
                     </div>
                 </div>

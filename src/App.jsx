@@ -349,6 +349,7 @@ function App() {
                         />
                     ) : userData && (userData.role === 'superadmin' || userData.role === 'merchant') && viewMode === 'auto' ? (
                         <PlatformSelector
+                            userData={userData}
                             role={userData.role}
                             onSelect={(choice) => setViewMode(choice)}
                         />
