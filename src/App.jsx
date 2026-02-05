@@ -301,6 +301,7 @@ function App() {
         setUserData(null)
         setSession(null)
         setShowProfile(false)
+        setViewMode('auto')
     }
 
     if (userStatus === 'loading') {
@@ -312,8 +313,8 @@ function App() {
     }
 
     return (
-        <div className="min-h-screen bg-surface-soft flex justify-center">
-            <div className="w-full max-w-2xl bg-white shadow-2xl relative min-h-screen flex flex-col overflow-hidden">
+        <div className={`min-h-screen bg-surface-soft flex justify-center ${viewMode === 'web' ? 'p-0' : ''}`}>
+            <div className={`${viewMode === 'web' ? 'w-full' : 'w-full max-w-2xl bg-white shadow-2xl'} relative min-h-screen flex flex-col overflow-hidden`}>
                 <AnimatePresence mode="wait">
                     {userStatus === 'landing' ? (
                         <Login
@@ -323,7 +324,7 @@ function App() {
                             }}
                             onGuest={handleGuestAccess}
                         />
-                    ) : (userData?.role === 'superadmin' || userData?.role === 'merchant') && viewMode === 'auto' ? (
+                    ) : userData && (userData.role === 'superadmin' || userData.role === 'merchant') && viewMode === 'auto' ? (
                         <PlatformSelector
                             role={userData.role}
                             onSelect={(choice) => setViewMode(choice)}
