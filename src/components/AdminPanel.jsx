@@ -34,7 +34,8 @@ import {
     Power,
     Zap,
     Scale,
-    Printer
+    Printer,
+    AlertTriangle
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -62,6 +63,8 @@ function AdminPanel({ userData, onLogout }) {
 
     // Premium Notifications
     const [notification, setNotification] = useState(null) // {type: 'success' | 'error', message: '', subMessage: '' }
+    const [confirmingDeleteBag, setConfirmingDeleteBag] = useState(null)
+    const [confirmingBoostBag, setConfirmingBoostBag] = useState(null)
 
     const showNotify = (type, message, subMessage = '') => {
         setNotification({ type, message, subMessage })
@@ -354,13 +357,49 @@ function AdminPanel({ userData, onLogout }) {
     }
 
     const deleteBag = async (id) => {
-        if (!confirm('Deseja realmente excluir esta sacola?')) return
+        setConfirmingDeleteBag(id)
+    }
+
+    const executeDeleteBag = async () => {
+        if (!confirmingDeleteBag) return
+        setActionLoading(true)
         try {
-            await supabase.from('bags').delete().eq('id', id)
+            const { error } = await supabase.from('bags').delete().eq('id', confirmingDeleteBag)
+            if (error) throw error
             showNotify('success', 'SACOLA REMOVIDA', 'Item excluído do seu catálogo.')
+            setConfirmingDeleteBag(null)
             fetchAdminData()
         } catch (error) {
             showNotify('error', 'ERRO AO DELETAR', error.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const executeToggleBoost = async (bag) => {
+        const currentFee = establishment?.boost_fee || 2.00
+        const isActivating = !bag.is_urgent
+
+        setActionLoading(true)
+        try {
+            const { error } = await supabase.from('bags').update({ is_urgent: isActivating }).eq('id', bag.id)
+            if (error) throw error
+
+            if (isActivating) {
+                await supabase.from('boost_usages').insert([{
+                    establishment_id: userData.establishment_id,
+                    bag_id: bag.id,
+                    fee_at_time: currentFee
+                }])
+            }
+
+            showNotify('success', isActivating ? 'IMPULSO ATIVADO' : 'IMPULSO DESATIVADO', isActivating ? `Taxa de R$ ${currentFee} aplicada.` : 'Sua sacola voltou ao modo padrão.')
+            setConfirmingBoostBag(null)
+            fetchAdminData()
+        } catch (e) {
+            showNotify('error', 'ERRO', e.message)
+        } finally {
+            setActionLoading(false)
         }
     }
 

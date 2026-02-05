@@ -5,7 +5,7 @@ import {
     Plus, Search, Store, Zap, Package, TrendingUp, DollarSign,
     Clock, CheckCircle2, AlertCircle, Printer, Filter, MessageSquare,
     ChevronRight, ArrowUpRight, Scale, Smartphone, Loader2,
-    Trash2, Edit2, X, XCircle, Save
+    Trash2, Edit2, X, XCircle, Save, AlertTriangle
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -28,6 +28,8 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     const [actionLoading, setActionLoading] = useState(false)
     const [notification, setNotification] = useState(null)
     const [searchQuery, setSearchQuery] = useState('')
+    const [confirmingDeleteBag, setConfirmingDeleteBag] = useState(null)
+    const [confirmingBoostBag, setConfirmingBoostBag] = useState(null)
 
     const [bagForm, setBagForm] = useState({
         title: '',
@@ -86,13 +88,23 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     }
 
     const handleDeleteBag = async (id) => {
-        if (!confirm('Deseja realmente excluir esta sacola?')) return
+        setConfirmingDeleteBag(id)
+    }
+
+    const executeDeleteBag = async () => {
+        if (!confirmingDeleteBag) return
+        setActionLoading(true)
         try {
-            const { error } = await supabase.from('bags').delete().eq('id', id)
+            const { error } = await supabase.from('bags').delete().eq('id', confirmingDeleteBag)
             if (error) throw error
             showNotify('success', 'EXCLUÍDO', 'Sacola removida com sucesso.')
+            setConfirmingDeleteBag(null)
             fetchAdminData()
-        } catch (e) { showNotify('error', 'ERRO', e.message) }
+        } catch (e) {
+            showNotify('error', 'ERRO', e.message)
+        } finally {
+            setActionLoading(false)
+        }
     }
 
     const handleSaveBag = async () => {
@@ -126,13 +138,19 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
     }
 
     const handleBoostBag = async (bag) => {
+        if (bag.is_urgent) {
+            // Se já estiver ativo, apenas desativa sem perguntar
+            executeToggleBoost(bag)
+        } else {
+            setConfirmingBoostBag(bag)
+        }
+    }
+
+    const executeToggleBoost = async (bag) => {
         const currentFee = establishment?.boost_fee || 2.00
         const isActivating = !bag.is_urgent
 
-        if (isActivating && !confirm(`Deseja ativar o IMPULSO? Uma taxa de R$ ${currentFee} será contabilizada para esta sacola.`)) {
-            return
-        }
-
+        setActionLoading(true)
         try {
             const { error } = await supabase.from('bags').update({ is_urgent: isActivating }).eq('id', bag.id)
             if (error) throw error
@@ -146,8 +164,13 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
             }
 
             showNotify('success', isActivating ? 'IMPULSO ATIVADO' : 'IMPULSO DESATIVADO', isActivating ? `Taxa de R$ ${currentFee} aplicada.` : 'Sua sacola voltou ao modo padrão.')
+            setConfirmingBoostBag(null)
             fetchAdminData()
-        } catch (e) { showNotify('error', 'ERRO', e.message) }
+        } catch (e) {
+            showNotify('error', 'ERRO', e.message)
+        } finally {
+            setActionLoading(false)
+        }
     }
 
     if (loading || !userData) {
@@ -200,8 +223,8 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                             key={item.id}
                             onClick={() => setActiveTab(item.id)}
                             className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-tight transition-all group ${activeTab === item.id
-                                    ? 'bg-primary text-white shadow-xl shadow-primary/20'
-                                    : 'text-gray-400 hover:bg-surface-soft hover:text-gray-900'
+                                ? 'bg-primary text-white shadow-xl shadow-primary/20'
+                                : 'text-gray-400 hover:bg-surface-soft hover:text-gray-900'
                                 }`}
                         >
                             <div className="flex items-center gap-4">
@@ -487,6 +510,88 @@ function AdminPanelWeb({ userData, onLogout, onSwitchMode }) {
                             </div>
                         </div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Confirmação de Exclusão de Sacola */}
+            <AnimatePresence>
+                {confirmingDeleteBag && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white w-full max-w-md rounded-[48px] shadow-2xl overflow-hidden p-10 space-y-8"
+                        >
+                            <div className="bg-red-50 w-24 h-24 rounded-[40px] flex items-center justify-center mx-auto">
+                                <AlertTriangle className="text-red-500 w-12 h-12" />
+                            </div>
+
+                            <div className="text-center space-y-3">
+                                <h3 className="text-2xl font-black italic uppercase text-gray-900 leading-none">Excluir Produto?</h3>
+                                <p className="text-gray-500 text-sm font-bold leading-relaxed px-6">
+                                    Deseja realmente remover esta sacola do seu catálogo? Todas as reservas pendentes vinculadas serão afetadas.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setConfirmingDeleteBag(null)}
+                                    className="flex-1 bg-surface-soft text-gray-400 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest hover:bg-gray-100 transition-all"
+                                >
+                                    CANCELAR
+                                </button>
+                                <button
+                                    onClick={executeDeleteBag}
+                                    disabled={actionLoading}
+                                    className="flex-[1.5] bg-red-500 text-white py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-red-200 hover:bg-red-600 active:scale-95 disabled:opacity-50 transition-all"
+                                >
+                                    SIM, EXCLUIR
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Confirmação de Impulso */}
+            <AnimatePresence>
+                {confirmingBoostBag && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white w-full max-w-md rounded-[48px] shadow-2xl overflow-hidden p-10 space-y-8"
+                        >
+                            <div className="bg-orange-50 w-24 h-24 rounded-[40px] flex items-center justify-center mx-auto border-2 border-orange-100">
+                                <Zap className="text-orange-500 w-12 h-12" fill="currentColor" />
+                            </div>
+
+                            <div className="text-center space-y-3">
+                                <h3 className="text-2xl font-black italic uppercase text-gray-900 leading-none">Ativar Impulso?</h3>
+                                <p className="text-gray-500 text-sm font-bold leading-relaxed px-6">
+                                    O Impulso dará destaque máximo à sua sacola na tela inicial. Uma taxa de <span className="text-orange-600 font-black">R$ {(establishment?.boost_fee || 2.00).toFixed(2)}</span> será aplicada.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setConfirmingBoostBag(null)}
+                                    className="flex-1 bg-surface-soft text-gray-400 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest hover:bg-gray-100 transition-all"
+                                >
+                                    CANCELAR
+                                </button>
+                                <button
+                                    onClick={() => executeToggleBoost(confirmingBoostBag)}
+                                    disabled={actionLoading}
+                                    className="flex-[1.5] bg-orange-500 text-white py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-orange-200 hover:bg-orange-600 active:scale-95 disabled:opacity-50 transition-all"
+                                >
+                                    ATIVAR AGORA
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>

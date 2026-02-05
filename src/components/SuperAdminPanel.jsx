@@ -59,6 +59,7 @@ function SuperAdminPanel({ userData, onLogout }) {
     const [actionLoading, setActionLoading] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [confirmingDelete, setConfirmingDelete] = useState(null) // ID of merchant to delete
+    const [confirmingDeleteUser, setConfirmingDeleteUser] = useState(null) // ID of user to delete
 
     useEffect(() => {
         fetchSuperData()
@@ -182,6 +183,27 @@ function SuperAdminPanel({ userData, onLogout }) {
             if (error) throw error
             showNotify('success', 'ESTABELECIMENTO REMOVIDO', 'Os dados foram apagados com sucesso.')
             setConfirmingDelete(null)
+            fetchSuperData()
+        } catch (error) {
+            showNotify('error', 'ERRO AO EXCLUIR', error.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const executeDeleteUser = async () => {
+        if (!confirmingDeleteUser) return
+        if (confirmingDeleteUser === userData.id) {
+            showNotify('error', 'PROIBIDO', 'Você não pode excluir sua própria conta.')
+            setConfirmingDeleteUser(null)
+            return
+        }
+        setActionLoading(true)
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', confirmingDeleteUser)
+            if (error) throw error
+            showNotify('success', 'USUÁRIO REMOVIDO', 'O perfil e dados associados foram apagados.')
+            setConfirmingDeleteUser(null)
             fetchSuperData()
         } catch (error) {
             showNotify('error', 'ERRO AO EXCLUIR', error.message)
@@ -354,6 +376,12 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                 <button className="p-3 bg-blue-50 text-blue-500 rounded-xl">
                                                     <Mail size={18} />
                                                 </button>
+                                                <button
+                                                    onClick={() => setConfirmingDeleteUser(u.id)}
+                                                    className="p-3 bg-red-50 text-red-500 rounded-xl"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -424,6 +452,12 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                             </button>
                                                             <button className="p-3 bg-gray-50 text-gray-300 rounded-xl">
                                                                 <Mail size={18} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setConfirmingDeleteUser(u.id)}
+                                                                className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                            >
+                                                                <Trash2 size={18} />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -766,6 +800,46 @@ function SuperAdminPanel({ userData, onLogout }) {
                                 </button>
                                 <button
                                     onClick={() => setConfirmingDelete(null)}
+                                    className="w-full bg-surface-soft text-gray-400 p-5 rounded-[24px] font-black uppercase text-xs active:scale-95 transition-all"
+                                >
+                                    CANCELAR
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* Modal: Confirmação de Exclusão de Usuário */}
+            <AnimatePresence>
+                {confirmingDeleteUser && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end sm:items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: 100 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 100 }}
+                            className="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden p-8 space-y-6"
+                        >
+                            <div className="bg-red-50 w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto">
+                                <AlertTriangle className="text-red-500 w-10 h-10" />
+                            </div>
+
+                            <div className="text-center space-y-2">
+                                <h3 className="text-xl font-black italic uppercase text-gray-900 leading-none">Excluir Usuário?</h3>
+                                <p className="text-gray-500 text-[11px] font-bold leading-relaxed px-4 text-center uppercase">
+                                    ESTA AÇÃO APAGARÁ O PERFIL E TODOS OS DADOS VINCULADOS (MENSAGENS, AVALIAÇÕES) PERMANENTEMENTE.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={executeDeleteUser}
+                                    disabled={actionLoading}
+                                    className="w-full bg-red-500 text-white p-5 rounded-[24px] font-black uppercase text-xs shadow-lg shadow-red-200 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {actionLoading ? <Loader2 className="animate-spin" size={16} /> : 'SIM, EXCLUIR USUÁRIO'}
+                                </button>
+                                <button
+                                    onClick={() => setConfirmingDeleteUser(null)}
                                     className="w-full bg-surface-soft text-gray-400 p-5 rounded-[24px] font-black uppercase text-xs active:scale-95 transition-all"
                                 >
                                     CANCELAR
