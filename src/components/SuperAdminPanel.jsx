@@ -27,7 +27,8 @@ import {
     Unlock,
     UserPlus,
     Filter,
-    Zap
+    Zap,
+    Trash2
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
