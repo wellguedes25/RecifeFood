@@ -520,18 +520,11 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                     <p className="text-[9px] font-black text-gray-400 uppercase">{m.category}</p>
                                                 </div>
                                             </div>
-                                            <div className="space-y-1 pr-12 relative">
+                                            <div className="space-y-1 relative">
                                                 <h4 className="text-sm font-black uppercase text-gray-900 group-hover:text-secondary transition-colors">{m.name}</h4>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
                                                     <MapPin size={10} /> {m.address ? m.address.slice(0, 30) + '...' : 'Endereço não informado'}
                                                 </p>
-                                                <button
-                                                    onClick={() => openEditModal(m)}
-                                                    className="absolute -top-12 right-0 p-3 bg-secondary text-white rounded-2xl shadow-lg shadow-secondary/20 hover:scale-110 active:scale-95 transition-all"
-                                                    title="Editar Estabelecimento"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 mt-6">
@@ -543,6 +536,13 @@ function SuperAdminPanel({ userData, onLogout }) {
                                                     {m.is_promoted ? 'Promovido' : 'Impulsionar'}
                                                 </button>
                                                 <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => openEditModal(m)}
+                                                        className="p-3 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all shadow-sm"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
                                                     <button
                                                         onClick={() => handleDeleteMerchant(m.id)}
                                                         className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"

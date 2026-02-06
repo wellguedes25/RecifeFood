@@ -70,7 +70,7 @@ function UserProfile({ userData, stats, favorites, establishments, onBack, onLog
         }
     }
 
-    const favoriteStores = establishments.filter(s => favorites.includes(s.id))
+    const favoriteStores = (establishments || []).filter(s => (favorites || []).includes(s.id))
 
     return (
         <motion.div

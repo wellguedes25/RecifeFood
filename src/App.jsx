@@ -17,6 +17,7 @@ import PlatformSelector from './components/PlatformSelector'
 
 function App() {
     const [establishments, setEstablishments] = useState([])
+    const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [favorites, setFavorites] = useState([])
     const [selectedBag, setSelectedBag] = useState(null)
@@ -42,7 +43,15 @@ function App() {
     const [cart, setCart] = useState([]) // Array de { bag, store, quantity }
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
     const [viewMode, setViewMode] = useState('auto') // 'auto', 'app', 'web'
-    const [locationName, setLocationName] = useState('Localizando...')
+
+    // Lazy init for location to prevent race conditions
+    const [userLocation, setUserLocation] = useState(() => {
+        const saved = localStorage.getItem('userLocation')
+        return saved ? JSON.parse(saved) : null
+    })
+    const [locationName, setLocationName] = useState(() => {
+        return localStorage.getItem('locationName') || 'Localizando...'
+    })
 
     useEffect(() => {
         const init = async () => {
@@ -234,12 +243,19 @@ function App() {
         })
     }
 
+    const locatingRef = useRef(false)
+
+    // Removed redundant useEffect since we use lazy init now
+
     const requestLocation = (callback) => {
+        if (locatingRef.current) return
         if ("geolocation" in navigator) {
+            locatingRef.current = true
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const loc = { lat: position.coords.latitude, lng: position.coords.longitude }
                     setUserLocation(loc)
+                    localStorage.setItem('userLocation', JSON.stringify(loc))
 
                     // Reverse geocoding to get city name
                     try {
@@ -247,9 +263,14 @@ function App() {
                         const data = await response.json()
                         const city = data.address.city || data.address.town || data.address.village || 'Sua Região'
                         const state = data.address.state ? `, ${data.address.state_code || data.address.state.slice(0, 2).toUpperCase()}` : ''
-                        setLocationName(`${city}${state}`)
+                        const name = `${city}${state}`
+
+                        setLocationName(name)
+                        localStorage.setItem('locationName', name)
                     } catch (err) {
                         setLocationName('Localização Ativa')
+                    } finally {
+                        locatingRef.current = false
                     }
 
                     if (callback) callback(loc)
@@ -257,10 +278,19 @@ function App() {
                 (error) => {
                     console.log("Erro ao pegar localização:", error)
                     setLocationName('Recife, PE') // Fallback
+                    locatingRef.current = false
                 }
             )
         }
     }
+
+    useEffect(() => {
+        // Only request if we don't have a location, haven't stored one, and aren't currently finding one
+        const hasStored = localStorage.getItem('userLocation')
+        if (userStatus === 'main' && session && !userLocation && !hasStored && locationName === 'Localizando...') {
+            requestLocation()
+        }
+    }, [userStatus, session, userLocation])
 
     const confirmLocationPermission = () => {
         setShowLocationModal(false)

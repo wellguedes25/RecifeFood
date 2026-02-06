@@ -192,10 +192,10 @@ function CheckoutModal({ cart, onConfirm, onClose, onRemoveItem, userData }) {
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
-                className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-[48px] overflow-hidden shadow-2xl relative"
+                className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-[48px] overflow-hidden shadow-2xl relative max-h-[85vh] flex flex-col"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                <div className="p-6 border-b border-gray-50 flex items-center justify-between shrink-0">
                     <div>
                         <h3 className="text-xl font-black italic uppercase text-gray-900 leading-tight">Checkout</h3>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{cart.length} itens no total</p>
@@ -205,7 +205,7 @@ function CheckoutModal({ cart, onConfirm, onClose, onRemoveItem, userData }) {
                     </button>
                 </div>
 
-                <div className="p-8 space-y-8">
+                <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar">
                     {step === 'summary' && (
                         <div className="space-y-6">
                             {/* Summary Card */}

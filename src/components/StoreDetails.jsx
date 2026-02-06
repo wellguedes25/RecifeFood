@@ -66,7 +66,7 @@ function StoreDetails({ store, onBack, onAddItem, userData, cart }) {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 50 }}
-            className="fixed inset-0 bg-black/5 z-[60] overflow-y-auto pb-60 flex justify-center"
+            className="fixed inset-0 bg-black/5 z-[60] overflow-y-auto pb-32 flex justify-center"
         >
             <div className="w-full max-w-2xl bg-white min-h-screen relative shadow-2xl">
                 {/* Hero Header */}
@@ -232,25 +232,31 @@ function StoreDetails({ store, onBack, onAddItem, userData, cart }) {
                     </div>
                 </div>
 
-                {/* Sticky Bottom Bar */}
-                {totalItems > 0 && (
-                    <motion.div
-                        initial={{ y: 100 }}
-                        animate={{ y: 0 }}
-                        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white/80 backdrop-blur-xl border-t border-gray-100 p-6 z-50 flex flex-col gap-4 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]"
-                    >
-                        <div className="bg-urgency text-white px-4 py-2 rounded-full font-black text-[11px] uppercase tracking-widest text-center animate-pulse">
-                            {totalItems} Sacola{totalItems > 1 ? 's' : ''} apenas! corra pra salvar 🔥
-                        </div>
-                        <button
-                            onClick={() => onAddItem(quantities)}
-                            className="w-full bg-primary hover:bg-[#C49232] text-white py-4 rounded-2xl font-black text-xl shadow-xl shadow-primary/30 active:scale-95 transition-all flex items-center justify-between px-8"
+                {/* Action Bar - Static Position at bottom of list */}
+                <AnimatePresence>
+                    {totalItems > 0 && (
+                        <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 20, opacity: 0 }}
+                            className="w-full bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] mt-8 rounded-t-2xl"
                         >
-                            <span>ADICIONAR ÀS RESERVAS</span>
-                            <span className="italic">R$ {totalPrice.toFixed(2)}</span>
-                        </button>
-                    </motion.div>
-                )}
+                            <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
+                                <div className="flex items-center justify-center gap-2 text-urgency font-black text-[10px] uppercase tracking-widest animate-pulse">
+                                    <Flame size={12} fill="currentColor" />
+                                    {totalItems} Sacola{totalItems > 1 ? 's' : ''} selecionada{totalItems > 1 ? 's' : ''}!
+                                </div>
+                                <button
+                                    onClick={() => onAddItem(quantities)}
+                                    className="w-full bg-primary hover:bg-[#C49232] text-white py-3 rounded-xl font-black text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all flex items-center justify-between px-6"
+                                >
+                                    <span>ADICIONAR</span>
+                                    <span className="italic bg-white/20 px-2 py-0.5 rounded-lg">R$ {totalPrice.toFixed(2)}</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </motion.div>
     )
